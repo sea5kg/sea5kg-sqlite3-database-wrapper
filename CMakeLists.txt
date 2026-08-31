@@ -40,6 +40,16 @@ list (APPEND WSJCPP_SOURCES "src/sea5kg_sqlite3_database_wrapper.cpp")
 #### BEGIN_WSJCPP_APPEND
 #### END_WSJCPP_APPEND
 
+add_subdirectory(src/third_party/sqlite3)
+# https://www.sqlite.org/threadsafe.html
+# target_compile_definitions(sqlite3-static
+#   PRIVATE
+#     SQLITE_THREADSAFE=0
+# )
+list (APPEND WSJCPP_LIBRARIES sqlite3-static)
+message(STATUS "sqlite3 includes dir: ${PROJECT_SOURCE_DIR}/src/third_party/sqlite3/src")
+list (APPEND WSJCPP_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/src/third_party/sqlite3/src")
+
 include_directories(${WSJCPP_INCLUDE_DIRS})
 
 add_executable (sea5kg-sqlite3-database-wrapper ${WSJCPP_SOURCES})

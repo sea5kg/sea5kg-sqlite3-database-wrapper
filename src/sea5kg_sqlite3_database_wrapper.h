@@ -37,8 +37,7 @@ namespace sea5kg {
 
 class database_update_info {
 public:
-  database_update_info(const std::string &version_from, const std::string &version_to,
-                         const std::string &description);
+  database_update_info(const std::string &version_from, const std::string &version_to, const std::string &description);
   const std::string &version_from() const;
   const std::string &version_to() const;
   const std::string &description() const;
@@ -53,19 +52,34 @@ class database_file;
 
 class database_update {
 public:
-  database_update(const std::string &sVersionFrom, const std::string &sVersionTo, const std::string &sDescription);
+  database_update(const std::string &version_from, const std::string &version_to, const std::string &description);
   const database_update_info &info();
-  void setWeight(int nWeight);
-  int getWeight();
-  virtual bool applyUpdate(database_file *pDatabaseFile) = 0;
+  void set_weight(int weight);
+  int weight();
+  virtual bool apply_update(database_file *pDatabaseFile) = 0;
 
 protected:
   std::string TAG;
 
 private:
-  database_update_info m_updateInfo;
-  int m_nWeight;
+  database_update_info m_update_info;
+  int m_weight;
 };
+
+#define DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description)                                               \
+  class db_update_##class_name##_##ver_from##_##ver_to : public sea5kg::database_update {                              \
+  public:                                                                                                              \
+    db_update_##class_name##_##ver_from##_##ver_to() : sea5kg::database_update(#ver_from, #ver_to, description) {      \
+    }                                                                                                                  \
+    virtual bool apply_update(sea5kg::database_file *db) override {
+
+#define DATABASE_UPDATE_END()                                                                                          \
+  }                                                                                                                    \
+  }                                                                                                                    \
+  db_update_##class_name##_##ver_from##_##ver_to##_impl;
+
+#define ADD_DATABASE_UPDATE(class_name, ver_from, ver_to)                                                              \
+  m_vDbUpdates.push_back(std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>());
 
 class DatabaseSelectRows {
 public:
@@ -83,10 +97,10 @@ private:
 
 class database_file {
 public:
-  database_file(const std::string &db_dir, const std::string &filename);
+  database_file(const std::string &db_dir, const std::string &filename, long backup_freq = 0);
   ~database_file();
-  std::string getFilename();
-  std::string getFileFullpath();
+  const std::string &filename() const;
+  const std::string &filepath() const;
   bool open();
   bool executeQuery(std::string sSqlInsert);
   int selectSumOrCount(std::string sSqlSelectCount);
@@ -99,15 +113,16 @@ protected:
   std::string TAG;
 
 private:
-  void copyDatabaseToBackup();
+  void copy_database_to_backup();
   std::mutex m_mutex;
 
   // hidden type 'sqlite3 *'
   void *m_pDatabaseFile;
-  std::string m_sFilename;
-  std::string m_sFileFullpath;
-  std::string m_sBaseFileBackupFullpath;
-  int m_nLastBackupTime;
+  std::string m_filename;
+  std::string m_filepath;
+  std::string m_basename_backup_filepath;
+  long m_last_backup_time;
+  long m_backup_freq_in_seconds;
 };
 
 } // namespace sea5kg

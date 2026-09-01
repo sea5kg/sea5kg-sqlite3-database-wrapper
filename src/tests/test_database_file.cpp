@@ -28,40 +28,33 @@
 #include <iostream>
 #include <sea5kg_sqlite3_database_wrapper.h>
 
-int main() {
-  // sea5kg::sql_builder builder;
-  // // clang-format off
-  // builder.deleteFrom("table4")
-  //   .where()
-  //     .equal("col1", "1")
-  //     .or_()
-  //     .notEqual("col2", "2")
-  //     .or_()
-  //     .subCondition()
-  //       .equal("c3", "4")
-  //       // .and_() // be default must be added and
-  //       .equal("col2", "5")
-  //     .finishSubCondition()
-  //     .or_()
-  //     .lessThen("col4", 111)
-  // ;
-  // // clang-format on
+DATABASE_UPDATE_BEGIN(test_database_file, v000, v001, "Init table uuids")
+// IF NOT EXISTS
+return db->executeQuery("CREATE TABLE users ( "
+                        "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                        "  uuid VARCHAR(36) NOT NULL,"
+                        "  name VARCHAR(128) NOT NULL,"
+                        "  pass VARCHAR(40) NOT NULL,"
+                        "  salt VARCHAR(40) NOT NULL,"
+                        "  role VARCHAR(36) NOT NULL,"
+                        "  dt INTEGER NOT NULL"
+                        ");");
+DATABASE_UPDATE_END()
 
-  // if (builder.hasErrors()) {
-  //   std::cerr << "Select builder has some errors" << std::endl;
-  //   return -1;
-  // }
-  // std::string sqlQuery = builder.sql();
-  // std::string sqlQueryExpected = "DELETE FROM table4 WHERE col1 = '1' OR col2 <> '2' OR (c3 = '4' AND col2 = '5') OR col4 < 111";
-  // if (sqlQuery != sqlQueryExpected) {
-  //   std::cerr
-  //     << "Expected:" << std::endl
-  //     << "   {" << sqlQueryExpected << "}" << std::endl
-  //     << ", but got:" << std::endl
-  //     << "   {" << sqlQuery << "}" << std::endl
-  //   ;
-  //   return -1;
-  // }
+class test_database_file : public sea5kg::database_file {
+public:
+  test_database_file() : sea5kg::database_file("./", "test_database_file.db") {
+    ADD_DATABASE_UPDATE(test_database_file, v000, v001)
+  }
+};
+
+int main() {
+  test_database_file db;
+
+  if (!db.open()) {
+    std::cerr << "Could not open database" << std::endl;
+    return -1;
+  }
 
   return 0;
 }

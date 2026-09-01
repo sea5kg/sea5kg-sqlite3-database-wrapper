@@ -122,21 +122,21 @@ const std::string &database_update_info::description() const {
 // ---------------------------------------------------------------------
 // database_update
 
-database_update::database_update(const std::string &sVersionFrom, const std::string &sVersionTo,
-                                 const std::string &sDescription)
-    : m_updateInfo(sVersionFrom, sVersionTo, sDescription) {
+database_update::database_update(const std::string &version_from, const std::string &version_to,
+                                 const std::string &description)
+    : m_update_info(version_from, version_to, description) {
 }
 
 const database_update_info &database_update::info() {
-  return m_updateInfo;
+  return m_update_info;
 };
 
-void database_update::setWeight(int nWeight) {
-  m_nWeight = nWeight;
+void database_update::set_weight(int weight) {
+  m_weight = weight;
 }
 
-int database_update::getWeight() {
-  return m_nWeight;
+int database_update::weight() {
+  return m_weight;
 }
 
 // ---------------------------------------------------------------------
@@ -171,22 +171,23 @@ long DatabaseSelectRows::getLong(int nColumnNumber) {
 // ---------------------------------------------------------------------
 // database_file
 
-database_file::database_file(const std::string &db_dir, const std::string &filename) {
+database_file::database_file(const std::string &db_dir, const std::string &filename, long backup_freq)
+    : m_backup_freq_in_seconds(backup_freq), m_last_backup_time(0) {
   TAG = "database_file-" + filename;
   m_pDatabaseFile = nullptr;
-  m_sFilename = filename;
-  m_nLastBackupTime = 0;
-  // EmployConfig *pConfig = findWsjcppEmploy<EmployConfig>();
+  m_filename = filename;
   std::string sDatabaseDir = db_dir;
-  m_sFileFullpath = sDatabaseDir + "/" + m_sFilename;
+  m_filepath = sDatabaseDir + "/" + m_filename;
 
-  std::string sDatabaseBackupDir = sDatabaseDir + "/backups";
-  if (!__dir_exists(sDatabaseBackupDir)) {
-    if (!__make_dir(sDatabaseBackupDir)) {
-      // TODO
+  if (m_backup_freq_in_seconds > 0) {
+    std::string sDatabaseBackupDir = sDatabaseDir + "/backups";
+    if (!__dir_exists(sDatabaseBackupDir)) {
+      if (!__make_dir(sDatabaseBackupDir)) {
+        // TODO
+      }
     }
+    m_basename_backup_filepath = sDatabaseBackupDir + "/" + m_filename;
   }
-  m_sBaseFileBackupFullpath = sDatabaseBackupDir + "/" + m_sFilename;
 };
 
 database_file::~database_file() {
@@ -196,19 +197,19 @@ database_file::~database_file() {
   }
 }
 
-std::string database_file::getFilename() {
-  return m_sFilename;
+const std::string &database_file::filename() const {
+  return m_filename;
 }
 
-std::string database_file::getFileFullpath() {
-  return m_sFileFullpath;
+const std::string &database_file::filepath() const {
+  return m_filepath;
 }
 
 bool database_file::open() {
   // TODO if could not open but has backup try open backup
   // open connection to a DB
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
-  int nRet = sqlite3_open_v2(m_sFileFullpath.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
+  int nRet = sqlite3_open_v2(m_filepath.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
   if (nRet != SQLITE_OK) {
     // TODO
     // WsjcppLog::throw_err(TAG, "Failed to open conn: " + std::to_string(nRet));
@@ -219,8 +220,8 @@ bool database_file::open() {
   const std::string sSqlCheckVersionTable =
       "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='db_version';";
 
-  int nCount = selectSumOrCount(sSqlCheckVersionTable.c_str());
-  if (nCount == 0) {
+  int cnt = selectSumOrCount(sSqlCheckVersionTable.c_str());
+  if (cnt == 0) {
     // create db_version
     const std::string sSqlCreateDbVersion = "CREATE TABLE IF NOT EXISTS db_version ( "
                                             "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -248,12 +249,12 @@ bool database_file::open() {
 
   // TODO
   // WsjcppLog::ok(TAG, "Opened database file " + m_sFileFullpath);
-  copyDatabaseToBackup();
+  copy_database_to_backup();
   return true;
 }
 
 bool database_file::executeQuery(std::string sSqlInsert) {
-  copyDatabaseToBackup();
+  copy_database_to_backup();
   char *zErrMsg = 0;
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
   int nRet = sqlite3_exec(db, sSqlInsert.c_str(), 0, 0, &zErrMsg);
@@ -266,7 +267,7 @@ bool database_file::executeQuery(std::string sSqlInsert) {
 }
 
 int database_file::selectSumOrCount(std::string sSqlSelectCount) {
-  // copyDatabaseToBackup();
+  // copy_database_to_backup();
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
   sqlite3_stmt *pQuery = nullptr;
   int ret = sqlite3_prepare_v2(db, sSqlSelectCount.c_str(), -1, &pQuery, NULL);
@@ -292,7 +293,7 @@ int database_file::selectSumOrCount(std::string sSqlSelectCount) {
 }
 
 bool database_file::selectRows(std::string sSqlSelectRows, DatabaseSelectRows &selectRows) {
-  // copyDatabaseToBackup();
+  // copy_database_to_backup();
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
   sqlite3_stmt *pQuery = nullptr;
   int nRet = sqlite3_prepare_v2(db, sSqlSelectRows.c_str(), -1, &pQuery, NULL);
@@ -355,9 +356,9 @@ bool database_file::installUpdates() {
 
       for (int iv = 0; iv < installedVersionsTo.size(); iv++) {
         if (sVersionFrom == installedVersionsTo[iv]) {
-          if (std::find(installedVersionsTo.begin(), installedVersionsTo.end(), sVersionTo) ==
-              installedVersionsTo.end()) {
-            if (!upd->applyUpdate(this)) {
+          auto it = std::find(installedVersionsTo.begin(), installedVersionsTo.end(), sVersionTo);
+          if (it == installedVersionsTo.end()) {
+            if (!upd->apply_update(this)) {
               return false;
             }
             if (!insertDbVersion(upd->info())) {
@@ -392,29 +393,33 @@ bool database_file::insertDbVersion(const database_update_info &info) {
   return this->executeQuery(sSqlDbVersion);
 }
 
-void database_file::copyDatabaseToBackup() {
+void database_file::copy_database_to_backup() {
+  if (m_backup_freq_in_seconds <= 0) {
+    return;
+  }
+
   std::lock_guard<std::mutex> lock(m_mutex);
   // TODO must be configurable
   // every 1 minutes make backup
   long nCurrentTime =
       std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-  if (nCurrentTime - m_nLastBackupTime < 60) {
+  if (nCurrentTime - m_last_backup_time < m_backup_freq_in_seconds) {
     return;
   }
-  m_nLastBackupTime = nCurrentTime;
+  m_last_backup_time = nCurrentTime;
 
   int nMaxBackupsFiles = 9;
   // TODO
   // WsjcppLog::info(TAG, "Start backup for " + m_sFileFullpath);
-  std::string sFilebackup = m_sBaseFileBackupFullpath + "." + std::to_string(nMaxBackupsFiles);
+  std::string sFilebackup = m_basename_backup_filepath + "." + std::to_string(nMaxBackupsFiles);
   if (__file_exists(sFilebackup)) {
     if (remove(sFilebackup.c_str())) {
       // TODO error or warning
     }
   }
   for (int i = nMaxBackupsFiles - 1; i >= 0; i--) {
-    std::string sFilebackupFrom = m_sBaseFileBackupFullpath + "." + std::to_string(i);
-    std::string sFilebackupTo = m_sBaseFileBackupFullpath + "." + std::to_string(i + 1);
+    std::string sFilebackupFrom = m_basename_backup_filepath + "." + std::to_string(i);
+    std::string sFilebackupTo = m_basename_backup_filepath + "." + std::to_string(i + 1);
     if (__file_exists(sFilebackupFrom)) {
       if (std::rename(sFilebackupFrom.c_str(), sFilebackupTo.c_str())) {
         // TODO
@@ -422,8 +427,8 @@ void database_file::copyDatabaseToBackup() {
       }
     }
   }
-  sFilebackup = m_sBaseFileBackupFullpath + "." + std::to_string(0);
-  if (!__copy_file(m_sFileFullpath, sFilebackup)) {
+  sFilebackup = m_basename_backup_filepath + "." + std::to_string(0);
+  if (!__copy_file(m_filepath, sFilebackup)) {
     // TODO
     // WsjcppLog::throw_err(TAG, "Failed copy file to backup for " + m_sFileFullpath);
   }

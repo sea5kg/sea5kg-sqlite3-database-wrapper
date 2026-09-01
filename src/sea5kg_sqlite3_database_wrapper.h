@@ -35,9 +35,9 @@
 
 namespace sea5kg {
 
-class DatabaseFileUpdateInfo {
+class database_update_info {
 public:
-  DatabaseFileUpdateInfo(const std::string &sVersionFrom, const std::string &sVersionTo,
+  database_update_info(const std::string &sVersionFrom, const std::string &sVersionTo,
                          const std::string &sDescription);
   const std::string &versionFrom() const;
   const std::string &versionTo() const;
@@ -49,21 +49,21 @@ private:
   std::string m_sDescription;
 };
 
-class DatabaseFile;
+class database_file;
 
-class DatabaseFileUpdate {
+class database_update {
 public:
-  DatabaseFileUpdate(const std::string &sVersionFrom, const std::string &sVersionTo, const std::string &sDescription);
-  const DatabaseFileUpdateInfo &info();
+  database_update(const std::string &sVersionFrom, const std::string &sVersionTo, const std::string &sDescription);
+  const database_update_info &info();
   void setWeight(int nWeight);
   int getWeight();
-  virtual bool applyUpdate(DatabaseFile *pDatabaseFile) = 0;
+  virtual bool applyUpdate(database_file *pDatabaseFile) = 0;
 
 protected:
   std::string TAG;
 
 private:
-  DatabaseFileUpdateInfo m_updateInfo;
+  database_update_info m_updateInfo;
   int m_nWeight;
 };
 
@@ -81,10 +81,10 @@ private:
   void *m_pQuery;
 };
 
-class DatabaseFile {
+class database_file {
 public:
-  DatabaseFile(const std::string &db_dir, const std::string &filename);
-  ~DatabaseFile();
+  database_file(const std::string &db_dir, const std::string &filename);
+  ~database_file();
   std::string getFilename();
   std::string getFileFullpath();
   bool open();
@@ -94,8 +94,8 @@ public:
 
 protected:
   bool installUpdates();
-  bool insertDbVersion(const DatabaseFileUpdateInfo &info);
-  std::vector<std::shared_ptr<DatabaseFileUpdate>> m_vDbUpdates;
+  bool insertDbVersion(const database_update_info &info);
+  std::vector<std::shared_ptr<database_update>> m_vDbUpdates;
   std::string TAG;
 
 private:

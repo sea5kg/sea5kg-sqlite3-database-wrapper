@@ -100,42 +100,42 @@ bool __copy_file(const std::string &sSourceFilename, const std::string &sTargetF
 }
 
 // ---------------------------------------------------------------------
-// DatabaseFileUpdateInfo
+// database_update_info
 
-DatabaseFileUpdateInfo::DatabaseFileUpdateInfo(const std::string &sVersionFrom, const std::string &sVersionTo,
+database_update_info::database_update_info(const std::string &sVersionFrom, const std::string &sVersionTo,
                                                const std::string &sDescription)
     : m_sVersionFrom(sVersionFrom), m_sVersionTo(sVersionTo), m_sDescription(sDescription) {
 }
 
-const std::string &DatabaseFileUpdateInfo::versionFrom() const {
+const std::string &database_update_info::versionFrom() const {
   return m_sVersionFrom;
 }
 
-const std::string &DatabaseFileUpdateInfo::versionTo() const {
+const std::string &database_update_info::versionTo() const {
   return m_sVersionTo;
 }
 
-const std::string &DatabaseFileUpdateInfo::description() const {
+const std::string &database_update_info::description() const {
   return m_sDescription;
 }
 
 // ---------------------------------------------------------------------
-// DatabaseFileUpdate
+// database_update
 
-DatabaseFileUpdate::DatabaseFileUpdate(const std::string &sVersionFrom, const std::string &sVersionTo,
+database_update::database_update(const std::string &sVersionFrom, const std::string &sVersionTo,
                                        const std::string &sDescription)
     : m_updateInfo(sVersionFrom, sVersionTo, sDescription) {
 }
 
-const DatabaseFileUpdateInfo &DatabaseFileUpdate::info() {
+const database_update_info &database_update::info() {
   return m_updateInfo;
 };
 
-void DatabaseFileUpdate::setWeight(int nWeight) {
+void database_update::setWeight(int nWeight) {
   m_nWeight = nWeight;
 }
 
-int DatabaseFileUpdate::getWeight() {
+int database_update::getWeight() {
   return m_nWeight;
 }
 
@@ -169,10 +169,10 @@ long DatabaseSelectRows::getLong(int nColumnNumber) {
 }
 
 // ---------------------------------------------------------------------
-// DatabaseFile
+// database_file
 
-DatabaseFile::DatabaseFile(const std::string &db_dir, const std::string &filename) {
-  TAG = "DatabaseFile-" + filename;
+database_file::database_file(const std::string &db_dir, const std::string &filename) {
+  TAG = "database_file-" + filename;
   m_pDatabaseFile = nullptr;
   m_sFilename = filename;
   m_nLastBackupTime = 0;
@@ -189,22 +189,22 @@ DatabaseFile::DatabaseFile(const std::string &db_dir, const std::string &filenam
   m_sBaseFileBackupFullpath = sDatabaseBackupDir + "/" + m_sFilename;
 };
 
-DatabaseFile::~DatabaseFile() {
+database_file::~database_file() {
   if (m_pDatabaseFile != nullptr) {
     sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
     sqlite3_close(db);
   }
 }
 
-std::string DatabaseFile::getFilename() {
+std::string database_file::getFilename() {
   return m_sFilename;
 }
 
-std::string DatabaseFile::getFileFullpath() {
+std::string database_file::getFileFullpath() {
   return m_sFileFullpath;
 }
 
-bool DatabaseFile::open() {
+bool database_file::open() {
   // TODO if could not open but has backup try open backup
   // open connection to a DB
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
@@ -252,7 +252,7 @@ bool DatabaseFile::open() {
   return true;
 }
 
-bool DatabaseFile::executeQuery(std::string sSqlInsert) {
+bool database_file::executeQuery(std::string sSqlInsert) {
   copyDatabaseToBackup();
   char *zErrMsg = 0;
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
@@ -265,7 +265,7 @@ bool DatabaseFile::executeQuery(std::string sSqlInsert) {
   return true;
 }
 
-int DatabaseFile::selectSumOrCount(std::string sSqlSelectCount) {
+int database_file::selectSumOrCount(std::string sSqlSelectCount) {
   // copyDatabaseToBackup();
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
   sqlite3_stmt *pQuery = nullptr;
@@ -291,7 +291,7 @@ int DatabaseFile::selectSumOrCount(std::string sSqlSelectCount) {
   return nRet;
 }
 
-bool DatabaseFile::selectRows(std::string sSqlSelectRows, DatabaseSelectRows &selectRows) {
+bool database_file::selectRows(std::string sSqlSelectRows, DatabaseSelectRows &selectRows) {
   // copyDatabaseToBackup();
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
   sqlite3_stmt *pQuery = nullptr;
@@ -307,11 +307,11 @@ bool DatabaseFile::selectRows(std::string sSqlSelectRows, DatabaseSelectRows &se
   return true;
 }
 
-bool DatabaseFile::installUpdates() {
+bool database_file::installUpdates() {
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
 
   // Installed updates
-  std::vector<DatabaseFileUpdateInfo> installedUpdates;
+  std::vector<database_update_info> installedUpdates;
   {
     sqlite3_stmt *pQuery = nullptr;
     const std::string sSqlCurrentVersion =
@@ -325,7 +325,7 @@ bool DatabaseFile::installUpdates() {
     }
     ret = sqlite3_step(pQuery);
     while (ret == SQLITE_ROW) {
-      DatabaseFileUpdateInfo info(std::string((const char *)sqlite3_column_text(pQuery, 0)), // from
+      database_update_info info(std::string((const char *)sqlite3_column_text(pQuery, 0)), // from
                                   std::string((const char *)sqlite3_column_text(pQuery, 1)), // to
                                   std::string((const char *)sqlite3_column_text(pQuery, 2))  // decr
       );
@@ -349,7 +349,7 @@ bool DatabaseFile::installUpdates() {
     std::vector<std::string> installedNewUpdates;
 
     for (const auto &upd : m_vDbUpdates) {
-      // DatabaseFileUpdate *pUpdate = m_vDbUpdates[i];
+      // database_update *pUpdate = m_vDbUpdates[i];
       const std::string &sVersionFrom = upd->info().versionFrom();
       const std::string &sVersionTo = upd->info().versionTo();
 
@@ -381,7 +381,7 @@ bool DatabaseFile::installUpdates() {
   return true;
 }
 
-bool DatabaseFile::insertDbVersion(const DatabaseFileUpdateInfo &info) {
+bool database_file::insertDbVersion(const database_update_info &info) {
   // TODO escaping
   long nCurrentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   std::string sSqlDbVersion = "INSERT INTO db_version(version_from, version_to, description, dt) VALUES(\"" +
@@ -390,7 +390,7 @@ bool DatabaseFile::insertDbVersion(const DatabaseFileUpdateInfo &info) {
   return this->executeQuery(sSqlDbVersion);
 }
 
-void DatabaseFile::copyDatabaseToBackup() {
+void database_file::copyDatabaseToBackup() {
   std::lock_guard<std::mutex> lock(m_mutex);
   // every 1 minutes make backup
   long nCurrentTime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();

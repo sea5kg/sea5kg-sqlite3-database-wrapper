@@ -27,9 +27,77 @@
 
 #include "sea5kg_sqlite3_database_wrapper.h"
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <sqlite3.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 namespace sea5kg {
+
+bool __file_exists(const std::string &sFilename) {
+  struct stat st;
+  bool bExists = (stat(sFilename.c_str(), &st) == 0);
+  if (bExists) {
+    return (st.st_mode & S_IFDIR) == 0;
+  }
+  return false;
+}
+
+bool __dir_exists(const std::string &sDirname) {
+  struct stat st;
+  bool bExists = (stat(sDirname.c_str(), &st) == 0);
+  if (bExists) {
+    return (st.st_mode & S_IFDIR) != 0;
+  }
+  return false;
+}
+
+bool __make_dir(const std::string &sDirname) {
+  struct stat st;
+
+  const std::filesystem::path dir{sDirname};
+  std::filesystem::create_directory(dir);
+
+  int nStatus = mkdir(sDirname.c_str(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+  if (nStatus == 0) {
+    return true;
+  }
+  if (nStatus == EACCES) {
+    std::cout << "FAILED create folder " << sDirname << std::endl;
+    return false;
+  }
+  // std::cout << "nStatus: " << nStatus << std::endl;
+  return true;
+}
+
+bool __copy_file(const std::string &sSourceFilename, const std::string &sTargetFilename) {
+  if (!__file_exists(sSourceFilename)) {
+    // WsjcppLog::err("copyFile", "File '" + sSourceFilename + "' did not exists");
+    return false;
+  }
+
+  if (__file_exists(sTargetFilename)) {
+    // WsjcppLog::err("copyFile", "File '" + sTargetFilename + "' already exists");
+    return false;
+  }
+
+  std::ifstream src(sSourceFilename, std::ios::binary);
+  if (!src.is_open()) {
+    // WsjcppLog::err("copyFile", "Could not open file '" + sSourceFilename + "' for read");
+    return false;
+  }
+
+  std::ofstream dst(sTargetFilename, std::ios::binary);
+  if (!dst.is_open()) {
+    // WsjcppLog::err("copyFile", "Could not open file '" + sTargetFilename + "' for write");
+    return false;
+  }
+
+  dst << src.rdbuf();
+  return true;
+}
 
 // ---------------------------------------------------------------------
 // DatabaseFileUpdateInfo
@@ -113,8 +181,10 @@ DatabaseFile::DatabaseFile(const std::string &db_dir, const std::string &filenam
   m_sFileFullpath = sDatabaseDir + "/" + m_sFilename;
 
   std::string sDatabaseBackupDir = sDatabaseDir + "/backups";
-  if (!WsjcppCore::dirExists(sDatabaseBackupDir)) {
-    !WsjcppCore::makeDir(sDatabaseBackupDir);
+  if (!__dir_exists(sDatabaseBackupDir)) {
+    if (!__make_dir(sDatabaseBackupDir)) {
+      // TODO
+    }
   }
   m_sBaseFileBackupFullpath = sDatabaseBackupDir + "/" + m_sFilename;
 };
@@ -188,7 +258,8 @@ bool DatabaseFile::executeQuery(std::string sSqlInsert) {
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
   int nRet = sqlite3_exec(db, sSqlInsert.c_str(), 0, 0, &zErrMsg);
   if (nRet != SQLITE_OK) {
-    WsjcppLog::throw_err(TAG, "Problem with insert: " + std::string(zErrMsg) + "\n SQL-query: " + sSqlInsert);
+    // TODO
+    // WsjcppLog::throw_err(TAG, "Problem with insert: " + std::string(zErrMsg) + "\n SQL-query: " + sSqlInsert);
     return false;
   }
   return true;
@@ -201,14 +272,18 @@ int DatabaseFile::selectSumOrCount(std::string sSqlSelectCount) {
   int ret = sqlite3_prepare_v2(db, sSqlSelectCount.c_str(), -1, &pQuery, NULL);
   // prepare the statement
   if (ret != SQLITE_OK) {
-    WsjcppLog::throw_err(TAG, "Failed to prepare select count: " + std::string(sqlite3_errmsg(db)) +
-                                  "\n SQL-query: " + sSqlSelectCount);
+    // TODO
+    // WsjcppLog::throw_err(TAG, "Failed to prepare select count: " + std::string(sqlite3_errmsg(db)) +
+    //                               "\n SQL-query: " + sSqlSelectCount);
+    return -1;
   }
   // step to 1st row of data
   ret = sqlite3_step(pQuery);
   if (ret != SQLITE_ROW) { // see documentation, this can return more values as success
-    WsjcppLog::throw_err(TAG, "Failed to step for select count or sum: " + std::string(sqlite3_errmsg(db)) +
-                                  "\n SQL-query: " + sSqlSelectCount);
+    // TODO
+    // WsjcppLog::throw_err(TAG, "Failed to step for select count or sum: " + std::string(sqlite3_errmsg(db)) +
+    //                               "\n SQL-query: " + sSqlSelectCount);
+    return -1;
   }
   int nRet = sqlite3_column_int(pQuery, 0);
   if (pQuery != nullptr)
@@ -223,8 +298,9 @@ bool DatabaseFile::selectRows(std::string sSqlSelectRows, DatabaseSelectRows &se
   int nRet = sqlite3_prepare_v2(db, sSqlSelectRows.c_str(), -1, &pQuery, NULL);
   // prepare the statement
   if (nRet != SQLITE_OK) {
-    WsjcppLog::throw_err(TAG, "Failed to prepare select rows: " + std::string(sqlite3_errmsg(db)) +
-                                  "\n SQL-query: " + sSqlSelectRows);
+    // TODO
+    // WsjcppLog::throw_err(TAG, "Failed to prepare select rows: " + std::string(sqlite3_errmsg(db)) +
+    //                               "\n SQL-query: " + sSqlSelectRows);
     return false;
   }
   selectRows.setQuery((void *)pQuery);
@@ -307,16 +383,17 @@ bool DatabaseFile::installUpdates() {
 
 bool DatabaseFile::insertDbVersion(const DatabaseFileUpdateInfo &info) {
   // TODO escaping
+  long nCurrentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   std::string sSqlDbVersion = "INSERT INTO db_version(version_from, version_to, description, dt) VALUES(\"" +
                               info.versionFrom() + "\", \"" + info.versionTo() + "\", \"" + info.description() +
-                              "\", " + std::to_string(WsjcppCore::getCurrentTimeInMilliseconds()) + ")";
+                              "\", " + std::to_string(nCurrentTime) + ")";
   return this->executeQuery(sSqlDbVersion);
 }
 
 void DatabaseFile::copyDatabaseToBackup() {
   std::lock_guard<std::mutex> lock(m_mutex);
   // every 1 minutes make backup
-  int nCurrentTime = WsjcppCore::getCurrentTimeInSeconds();
+  long nCurrentTime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   if (nCurrentTime - m_nLastBackupTime < 60) {
     return;
   }
@@ -326,13 +403,15 @@ void DatabaseFile::copyDatabaseToBackup() {
   // TODO
   // WsjcppLog::info(TAG, "Start backup for " + m_sFileFullpath);
   std::string sFilebackup = m_sBaseFileBackupFullpath + "." + std::to_string(nMaxBackupsFiles);
-  if (WsjcppCore::fileExists(sFilebackup)) {
-    WsjcppCore::removeFile(sFilebackup);
+  if (__file_exists(sFilebackup)) {
+    if (remove(sFilebackup.c_str())) {
+      // TODO error or warning
+    }
   }
   for (int i = nMaxBackupsFiles - 1; i >= 0; i--) {
     std::string sFilebackupFrom = m_sBaseFileBackupFullpath + "." + std::to_string(i);
     std::string sFilebackupTo = m_sBaseFileBackupFullpath + "." + std::to_string(i + 1);
-    if (WsjcppCore::fileExists(sFilebackupFrom)) {
+    if (__file_exists(sFilebackupFrom)) {
       if (std::rename(sFilebackupFrom.c_str(), sFilebackupTo.c_str())) {
         // TODO
         // WsjcppLog::throw_err(TAG, "Could not rename from " + sFilebackupFrom + " to " + sFilebackupTo);
@@ -340,7 +419,7 @@ void DatabaseFile::copyDatabaseToBackup() {
     }
   }
   sFilebackup = m_sBaseFileBackupFullpath + "." + std::to_string(0);
-  if (!WsjcppCore::copyFile(m_sFileFullpath, sFilebackup)) {
+  if (!__copy_file(m_sFileFullpath, sFilebackup)) {
     // TODO
     // WsjcppLog::throw_err(TAG, "Failed copy file to backup for " + m_sFileFullpath);
   }

@@ -37,16 +37,16 @@ namespace sea5kg {
 
 class database_update_info {
 public:
-  database_update_info(const std::string &sVersionFrom, const std::string &sVersionTo,
-                         const std::string &sDescription);
-  const std::string &versionFrom() const;
-  const std::string &versionTo() const;
+  database_update_info(const std::string &version_from, const std::string &version_to,
+                         const std::string &description);
+  const std::string &version_from() const;
+  const std::string &version_to() const;
   const std::string &description() const;
 
 private:
-  std::string m_sVersionFrom;
-  std::string m_sVersionTo;
-  std::string m_sDescription;
+  std::string m_version_from;
+  std::string m_version_to;
+  std::string m_description;
 };
 
 class database_file;

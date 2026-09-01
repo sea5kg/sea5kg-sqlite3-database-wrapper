@@ -102,28 +102,28 @@ bool __copy_file(const std::string &sSourceFilename, const std::string &sTargetF
 // ---------------------------------------------------------------------
 // database_update_info
 
-database_update_info::database_update_info(const std::string &sVersionFrom, const std::string &sVersionTo,
-                                               const std::string &sDescription)
-    : m_sVersionFrom(sVersionFrom), m_sVersionTo(sVersionTo), m_sDescription(sDescription) {
+database_update_info::database_update_info(const std::string &version_from, const std::string &version_to,
+                                           const std::string &description)
+    : m_version_from(version_from), m_version_to(version_to), m_description(description) {
 }
 
-const std::string &database_update_info::versionFrom() const {
-  return m_sVersionFrom;
+const std::string &database_update_info::version_from() const {
+  return m_version_from;
 }
 
-const std::string &database_update_info::versionTo() const {
-  return m_sVersionTo;
+const std::string &database_update_info::version_to() const {
+  return m_version_to;
 }
 
 const std::string &database_update_info::description() const {
-  return m_sDescription;
+  return m_description;
 }
 
 // ---------------------------------------------------------------------
 // database_update
 
 database_update::database_update(const std::string &sVersionFrom, const std::string &sVersionTo,
-                                       const std::string &sDescription)
+                                 const std::string &sDescription)
     : m_updateInfo(sVersionFrom, sVersionTo, sDescription) {
 }
 
@@ -326,8 +326,8 @@ bool database_file::installUpdates() {
     ret = sqlite3_step(pQuery);
     while (ret == SQLITE_ROW) {
       database_update_info info(std::string((const char *)sqlite3_column_text(pQuery, 0)), // from
-                                  std::string((const char *)sqlite3_column_text(pQuery, 1)), // to
-                                  std::string((const char *)sqlite3_column_text(pQuery, 2))  // decr
+                                std::string((const char *)sqlite3_column_text(pQuery, 1)), // to
+                                std::string((const char *)sqlite3_column_text(pQuery, 2))  // decr
       );
       installedUpdates.push_back(info);
       ret = sqlite3_step(pQuery);
@@ -339,7 +339,7 @@ bool database_file::installUpdates() {
   std::vector<std::string> installedVersionsTo;
   installedVersionsTo.push_back(""); // start version
   for (int i = 0; i < installedUpdates.size(); i++) {
-    installedVersionsTo.push_back(installedUpdates[i].versionTo());
+    installedVersionsTo.push_back(installedUpdates[i].version_to());
   }
 
   // install updates
@@ -350,8 +350,8 @@ bool database_file::installUpdates() {
 
     for (const auto &upd : m_vDbUpdates) {
       // database_update *pUpdate = m_vDbUpdates[i];
-      const std::string &sVersionFrom = upd->info().versionFrom();
-      const std::string &sVersionTo = upd->info().versionTo();
+      const std::string &sVersionFrom = upd->info().version_from();
+      const std::string &sVersionTo = upd->info().version_to();
 
       for (int iv = 0; iv < installedVersionsTo.size(); iv++) {
         if (sVersionFrom == installedVersionsTo[iv]) {
@@ -383,17 +383,21 @@ bool database_file::installUpdates() {
 
 bool database_file::insertDbVersion(const database_update_info &info) {
   // TODO escaping
-  long nCurrentTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  long nCurrentTime =
+      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
+          .count();
   std::string sSqlDbVersion = "INSERT INTO db_version(version_from, version_to, description, dt) VALUES(\"" +
-                              info.versionFrom() + "\", \"" + info.versionTo() + "\", \"" + info.description() +
+                              info.version_from() + "\", \"" + info.version_to() + "\", \"" + info.description() +
                               "\", " + std::to_string(nCurrentTime) + ")";
   return this->executeQuery(sSqlDbVersion);
 }
 
 void database_file::copyDatabaseToBackup() {
   std::lock_guard<std::mutex> lock(m_mutex);
+  // TODO must be configurable
   // every 1 minutes make backup
-  long nCurrentTime = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  long nCurrentTime =
+      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   if (nCurrentTime - m_nLastBackupTime < 60) {
     return;
   }

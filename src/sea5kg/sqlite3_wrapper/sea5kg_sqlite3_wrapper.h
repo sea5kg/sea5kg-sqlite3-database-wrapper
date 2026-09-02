@@ -51,8 +51,19 @@ private:
 };
 
 class database_file;
+class database_update;
 
 // extern std::map<std::string, database_file *> *g_opened_database_files;
+
+extern std::map<std::string, std::shared_ptr<database_update>> *g_database_updates;
+
+class global {
+public:
+  static void registry_database_update(const std::string &db_name, std::shared_ptr<database_update>);
+  // static void add_opened_database_file(const std::string &name, database_file *db);
+  // static bool init_driver_sqlite3(int &ret);
+  // static void shutdown_driver_sqlite3();
+};
 
 // class global_databases {
 // public:
@@ -82,8 +93,6 @@ private:
   int m_weight;
 };
 
-extern std::map<std::string, std::shared_ptr<database_update>> *g_database_updates;
-
 #define CLASS_DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description) \
   class db_update_##class_name##_##ver_from##_##ver_to : public sea5kg::sqlite3_wrapper::database_update { \
   public: \
@@ -94,7 +103,13 @@ extern std::map<std::string, std::shared_ptr<database_update>> *g_database_updat
 
 #define CLASS_DATABASE_UPDATE_END(class_name, ver_from, ver_to) \
   } \
-  db_update_##class_name##_##ver_from##_##ver_to##_impl;
+  ; \
+  struct registry_db_update_##class_name##_##ver_from##_##ver_to { \
+    registry_db_update_##class_name##_##ver_from##_##ver_to() { \
+      std::shared_ptr<sea5kg::sqlite3_wrapper::database_update> ptr = std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>(); \
+      sea5kg::sqlite3_wrapper::global::registry_database_update(#class_name, ptr); \
+    } \
+  } registry_db_update_##class_name##_##ver_from##_##ver_to##_;
 
 #define ADD_DATABASE_UPDATE(class_name, ver_from, ver_to) \
   m_vDbUpdates.push_back(std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>());

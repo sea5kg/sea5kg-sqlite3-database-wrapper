@@ -101,6 +101,15 @@ bool __copy_file(const std::string &sSourceFilename, const std::string &sTargetF
   return true;
 }
 
+std::map<std::string, std::shared_ptr<database_update>> *g_database_updates = nullptr;
+
+void global::registry_database_update(const std::string &db_name, std::shared_ptr<database_update> upd) {
+  if (g_database_updates == nullptr) {
+    g_database_updates = new std::map<std::string, std::shared_ptr<database_update>>();
+  }
+  g_database_updates->insert(std::pair<std::string, std::shared_ptr<database_update>>(db_name, upd));
+}
+
 // std::map<std::string, database_file *> *g_opened_database_files = nullptr;
 
 // // static
@@ -154,8 +163,6 @@ const std::string &database_update_info::description() const {
   return m_description;
 }
 
-std::map<std::string, std::shared_ptr<database_update>> *g_database_updates = nullptr;
-
 database_update::database_update(
   const std::string &db_filename,
   const std::string &version_from,
@@ -163,12 +170,12 @@ database_update::database_update(
   const std::string &description
 )
     : m_update_info(version_from, version_to, description) {
-  if (g_database_updates == nullptr) {
-    // sea5kg::log::info(std::string(), "Create employees map");
-    g_database_updates = new std::map<std::string, std::shared_ptr<database_update>>();
-  }
-  std::shared_ptr<database_update> __this(this);
-  g_database_updates->insert(std::pair<std::string, std::shared_ptr<database_update>>(db_filename, __this));
+  // if (g_database_updates == nullptr) {
+  //   // sea5kg::log::info(std::string(), "Create employees map");
+  //   g_database_updates = new std::map<std::string, std::shared_ptr<database_update>>();
+  // }
+  // std::shared_ptr<database_update> __this(this);
+  // g_database_updates->insert(std::pair<std::string, std::shared_ptr<database_update>>(db_filename, __this));
 }
 
 const database_update_info &database_update::info() {

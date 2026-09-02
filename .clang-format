@@ -13,6 +13,10 @@ AlignEscapedNewlines: DontAlign
 AlignAfterOpenBracket: BlockIndent
 ContinuationIndentWidth: 2
 
+# Do not pack multiple arguments/parameters on the same line
+BinPackArguments: false
+BinPackParameters: false
+
 # BreakBeforeBraces: Custom
 # BraceWrapping:
 #   AfterCaseLabel: false

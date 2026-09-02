@@ -154,17 +154,21 @@ const std::string &database_update_info::description() const {
   return m_description;
 }
 
-std::map<std::string, database_update *> *g_database_updates = nullptr;
+std::map<std::string, std::shared_ptr<database_update>> *g_database_updates = nullptr;
 
 database_update::database_update(
-  const std::string &version_from, const std::string &version_to, const std::string &description
+  const std::string &db_filename,
+  const std::string &version_from,
+  const std::string &version_to,
+  const std::string &description
 )
     : m_update_info(version_from, version_to, description) {
   if (g_database_updates == nullptr) {
     // sea5kg::log::info(std::string(), "Create employees map");
-    g_database_updates = new std::map<std::string, database_update *>();
+    g_database_updates = new std::map<std::string, std::shared_ptr<database_update>>();
   }
-  // g_database_updates->insert(std::pair<std::string, database_update *>(name, this));
+  std::shared_ptr<database_update> __this(this);
+  g_database_updates->insert(std::pair<std::string, std::shared_ptr<database_update>>(db_filename, __this));
 }
 
 const database_update_info &database_update::info() {
@@ -433,6 +437,17 @@ bool database_file::insertDbVersion(const database_update_info &info) {
                               info.version_from() + "\", \"" + info.version_to() + "\", \"" + info.description() +
                               "\", " + std::to_string(nCurrentTime) + ")";
   return this->executeQuery(sSqlDbVersion);
+}
+
+void database_file::init_updates(const std::string &db_name, const std::string &initial_version) {
+  m_initial_version = initial_version;
+  if (g_database_updates != nullptr) {
+    for (const auto &pair : *g_database_updates) {
+      if (pair.first == db_name) {
+        m_vDbUpdates.push_back(pair.second);
+      }
+    }
+  }
 }
 
 void database_file::copy_database_to_backup() {

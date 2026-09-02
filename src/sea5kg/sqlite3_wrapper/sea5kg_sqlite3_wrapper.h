@@ -63,7 +63,12 @@ class database_file;
 
 class database_update {
 public:
-  database_update(const std::string &version_from, const std::string &version_to, const std::string &description);
+  database_update(
+    const std::string &db_filename,
+    const std::string &version_from,
+    const std::string &version_to,
+    const std::string &description
+  );
   const database_update_info &info();
   void set_weight(int weight);
   int weight();
@@ -77,12 +82,13 @@ private:
   int m_weight;
 };
 
-extern std::map<std::string, database_update *> *g_database_updates;
+extern std::map<std::string, std::shared_ptr<database_update>> *g_database_updates;
 
 #define CLASS_DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description) \
   class db_update_##class_name##_##ver_from##_##ver_to : public sea5kg::sqlite3_wrapper::database_update { \
   public: \
-    db_update_##class_name##_##ver_from##_##ver_to() : sea5kg::sqlite3_wrapper::database_update(#ver_from, #ver_to, description) { \
+    db_update_##class_name##_##ver_from##_##ver_to() \
+        : sea5kg::sqlite3_wrapper::database_update(#class_name, #ver_from, #ver_to, description) { \
     } \
     virtual bool apply_update(sea5kg::sqlite3_wrapper::database_file * db) override
 
@@ -93,7 +99,7 @@ extern std::map<std::string, database_update *> *g_database_updates;
 #define ADD_DATABASE_UPDATE(class_name, ver_from, ver_to) \
   m_vDbUpdates.push_back(std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>());
 
-#define INIT_UPDATES(class_name, init_ver) m_initial_version = #init_ver;
+#define INIT_UPDATES(class_name, init_ver) init_updates(#class_name, #init_ver);
 
 class DatabaseSelectRows {
 public:
@@ -123,9 +129,9 @@ public:
 protected:
   bool installUpdates();
   bool insertDbVersion(const database_update_info &info);
+  void init_updates(const std::string &db_name, const std::string &initial_version);
   std::vector<std::shared_ptr<database_update>> m_vDbUpdates;
   std::string TAG;
-  std::string m_initial_version;
 
 private:
   void copy_database_to_backup();
@@ -134,6 +140,7 @@ private:
   // hidden type 'sqlite3 *'
   void *m_pDatabaseFile;
   std::string m_filename;
+  std::string m_initial_version;
   std::string m_filepath;
   std::string m_basename_backup_filepath;
   long m_last_backup_time;

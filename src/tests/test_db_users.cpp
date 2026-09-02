@@ -28,7 +28,7 @@
 #include <iostream>
 #include "sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.h"
 
-CLASS_DATABASE_UPDATE_BEGIN(test_database_file, v000, v001, "Init table users") {
+CLASS_DATABASE_UPDATE_BEGIN(db_users, v000, v001, "Init table users") {
   // IF NOT EXISTS
   return db->executeQuery(
     "CREATE TABLE users ( "
@@ -42,9 +42,9 @@ CLASS_DATABASE_UPDATE_BEGIN(test_database_file, v000, v001, "Init table users") 
     ");"
   );
 }
-CLASS_DATABASE_UPDATE_END(test_database_file, v000, v001)
+CLASS_DATABASE_UPDATE_END(db_users, v000, v001)
 
-CLASS_DATABASE_UPDATE_BEGIN(test_database_file, v001, v002, "Init table roles") {
+CLASS_DATABASE_UPDATE_BEGIN(db_users, v001, v002, "Init table roles") {
   // IF NOT EXISTS
   return db->executeQuery(
     "CREATE TABLE roles ( "
@@ -53,18 +53,17 @@ CLASS_DATABASE_UPDATE_BEGIN(test_database_file, v001, v002, "Init table roles") 
     ");"
   );
 }
-CLASS_DATABASE_UPDATE_END(test_database_file, v001, v002)
+CLASS_DATABASE_UPDATE_END(db_users, v001, v002)
 
-class test_database_file : public sea5kg::sqlite3_wrapper::database_file {
+class db_users : public sea5kg::sqlite3_wrapper::database_file {
 public:
-  test_database_file() : sea5kg::sqlite3_wrapper::database_file("./", "test_database_file.db") {
-    INIT_UPDATES(test_database_file, v000)
-    ADD_DATABASE_UPDATE(test_database_file, v000, v001)
+  db_users(const std::string &db_dir) : sea5kg::sqlite3_wrapper::database_file(db_dir, "test_db_users.db") {
+    INIT_UPDATES(db_users, v000)
   }
 };
 
 int main() {
-  test_database_file db;
+  db_users db("./");
 
   if (!db.open()) {
     std::cerr << "Could not open database" << std::endl;

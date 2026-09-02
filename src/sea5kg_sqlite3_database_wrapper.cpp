@@ -36,6 +36,8 @@
 
 namespace sea5kg {
 
+namespace sqlite3_wrapper {
+
 bool __file_exists(const std::string &sFilename) {
   struct stat st;
   bool bExists = (stat(sFilename.c_str(), &st) == 0);
@@ -99,11 +101,44 @@ bool __copy_file(const std::string &sSourceFilename, const std::string &sTargetF
   return true;
 }
 
+// std::map<std::string, database_file *> *g_opened_database_files = nullptr;
+
+// // static
+// void global_databases::add_opened_database_file(const std::string &name, database_file *db) {
+//   if (g_opened_database_files == nullptr) {
+//     // sea5kg::log::info(std::string(), "Create employees map");
+//     g_opened_database_files = new std::map<std::string, database_file *>();
+//   }
+//   if (g_opened_database_files->find(name) != g_opened_database_files->end()) {
+//     sea5kg::log::critical("WsjcppEmployees::addService", "Already registered '" + name + "'");
+//   } else {
+//     g_opened_database_files->insert(std::pair<std::string, database_file *>(name, db));
+//   }
+// }
+
+// // static
+// bool global_databases::init_driver_sqlite3(int &ret) {
+//   ret = sqlite3_initialize();
+//   return SQLITE_OK == ret;
+// }
+
+// // static
+// void global_databases::shutdown_driver_sqlite3() {
+//   // will be automatically closed all opened databases
+//   if (g_opened_database_files != nullptr) {
+//     for (const auto &pair : *g_opened_database_files) {
+//       pair.second->close();
+//     }
+//   }
+//   sqlite3_shutdown();
+// }
+
 // ---------------------------------------------------------------------
 // database_update_info
 
-database_update_info::database_update_info(const std::string &version_from, const std::string &version_to,
-                                           const std::string &description)
+database_update_info::database_update_info(
+  const std::string &version_from, const std::string &version_to, const std::string &description
+)
     : m_version_from(version_from), m_version_to(version_to), m_description(description) {
 }
 
@@ -122,8 +157,9 @@ const std::string &database_update_info::description() const {
 // ---------------------------------------------------------------------
 // database_update
 
-database_update::database_update(const std::string &version_from, const std::string &version_to,
-                                 const std::string &description)
+database_update::database_update(
+  const std::string &version_from, const std::string &version_to, const std::string &description
+)
     : m_update_info(version_from, version_to, description) {
 }
 
@@ -218,7 +254,7 @@ bool database_file::open() {
   m_pDatabaseFile = db;
 
   const std::string sSqlCheckVersionTable =
-      "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='db_version';";
+    "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='db_version';";
 
   int cnt = selectSumOrCount(sSqlCheckVersionTable.c_str());
   if (cnt == 0) {
@@ -316,7 +352,7 @@ bool database_file::installUpdates() {
   {
     sqlite3_stmt *pQuery = nullptr;
     const std::string sSqlCurrentVersion =
-        "SELECT version_from, version_to, description FROM db_version ORDER BY rowid";
+      "SELECT version_from, version_to, description FROM db_version ORDER BY rowid";
     int ret = sqlite3_prepare_v2(db, sSqlCurrentVersion.c_str(), -1, &pQuery, NULL);
     if (ret != SQLITE_OK) {
       // TODO
@@ -326,9 +362,10 @@ bool database_file::installUpdates() {
     }
     ret = sqlite3_step(pQuery);
     while (ret == SQLITE_ROW) {
-      database_update_info info(std::string((const char *)sqlite3_column_text(pQuery, 0)), // from
-                                std::string((const char *)sqlite3_column_text(pQuery, 1)), // to
-                                std::string((const char *)sqlite3_column_text(pQuery, 2))  // decr
+      database_update_info info(
+        std::string((const char *)sqlite3_column_text(pQuery, 0)), // from
+        std::string((const char *)sqlite3_column_text(pQuery, 1)), // to
+        std::string((const char *)sqlite3_column_text(pQuery, 2))  // decr
       );
       installedUpdates.push_back(info);
       ret = sqlite3_step(pQuery);
@@ -338,7 +375,7 @@ bool database_file::installUpdates() {
   }
 
   std::vector<std::string> installedVersionsTo;
-  installedVersionsTo.push_back(""); // start version
+  installedVersionsTo.push_back(m_initial_version);
   for (int i = 0; i < installedUpdates.size(); i++) {
     installedVersionsTo.push_back(installedUpdates[i].version_to());
   }
@@ -385,9 +422,10 @@ bool database_file::installUpdates() {
 bool database_file::insertDbVersion(const database_update_info &info) {
   // TODO escaping
   long nCurrentTime =
-      std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch())
-          .count();
-  std::string sSqlDbVersion = "INSERT INTO db_version(version_from, version_to, description, dt) VALUES(\"" +
+    std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+  std::string sSqlDbVersion = "INSERT INTO "
+                              "db_version(version_from, version_to, description, dt) "
+                              "VALUES(\"" +
                               info.version_from() + "\", \"" + info.version_to() + "\", \"" + info.description() +
                               "\", " + std::to_string(nCurrentTime) + ")";
   return this->executeQuery(sSqlDbVersion);
@@ -402,7 +440,7 @@ void database_file::copy_database_to_backup() {
   // TODO must be configurable
   // every 1 minutes make backup
   long nCurrentTime =
-      std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   if (nCurrentTime - m_last_backup_time < m_backup_freq_in_seconds) {
     return;
   }
@@ -435,5 +473,7 @@ void database_file::copy_database_to_backup() {
   // TODO
   // WsjcppLog::info(TAG, "Backup done for " + m_sFileFullpath);
 }
+
+} // namespace sqlite3_wrapper
 
 } // namespace sea5kg

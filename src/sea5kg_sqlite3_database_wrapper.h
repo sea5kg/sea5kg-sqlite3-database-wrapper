@@ -35,6 +35,8 @@
 
 namespace sea5kg {
 
+namespace sqlite3_wrapper {
+
 class database_update_info {
 public:
   database_update_info(const std::string &version_from, const std::string &version_to, const std::string &description);
@@ -49,6 +51,15 @@ private:
 };
 
 class database_file;
+
+// extern std::map<std::string, database_file *> *g_opened_database_files;
+
+// class global_databases {
+// public:
+//   static void add_opened_database_file(const std::string &name, database_file *db);
+//   static bool init_driver_sqlite3(int &ret);
+//   static void shutdown_driver_sqlite3();
+// };
 
 class database_update {
 public:
@@ -66,20 +77,21 @@ private:
   int m_weight;
 };
 
-#define DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description)                                               \
-  class db_update_##class_name##_##ver_from##_##ver_to : public sea5kg::database_update {                              \
-  public:                                                                                                              \
-    db_update_##class_name##_##ver_from##_##ver_to() : sea5kg::database_update(#ver_from, #ver_to, description) {      \
-    }                                                                                                                  \
-    virtual bool apply_update(sea5kg::database_file *db) override {
+#define CLASS_DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description) \
+  class db_update_##class_name##_##ver_from##_##ver_to : public sea5kg::sqlite3_wrapper::database_update { \
+  public: \
+    db_update_##class_name##_##ver_from##_##ver_to() : sea5kg::sqlite3_wrapper::database_update(#ver_from, #ver_to, description) { \
+    } \
+    virtual bool apply_update(sea5kg::sqlite3_wrapper::database_file * db) override
 
-#define DATABASE_UPDATE_END()                                                                                          \
-  }                                                                                                                    \
-  }                                                                                                                    \
+#define CLASS_DATABASE_UPDATE_END(class_name, ver_from, ver_to) \
+  } \
   db_update_##class_name##_##ver_from##_##ver_to##_impl;
 
-#define ADD_DATABASE_UPDATE(class_name, ver_from, ver_to)                                                              \
+#define ADD_DATABASE_UPDATE(class_name, ver_from, ver_to) \
   m_vDbUpdates.push_back(std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>());
+
+#define INIT_UPDATES(class_name, init_ver) m_initial_version = #init_ver;
 
 class DatabaseSelectRows {
 public:
@@ -111,6 +123,7 @@ protected:
   bool insertDbVersion(const database_update_info &info);
   std::vector<std::shared_ptr<database_update>> m_vDbUpdates;
   std::string TAG;
+  std::string m_initial_version;
 
 private:
   void copy_database_to_backup();
@@ -124,5 +137,7 @@ private:
   long m_last_backup_time;
   long m_backup_freq_in_seconds;
 };
+
+} // namespace sqlite3_wrapper
 
 } // namespace sea5kg

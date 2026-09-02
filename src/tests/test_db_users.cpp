@@ -28,22 +28,37 @@
 #include <iostream>
 #include <sea5kg_sqlite3_database_wrapper.h>
 
-DATABASE_UPDATE_BEGIN(test_database_file, v000, v001, "Init table uuids")
-// IF NOT EXISTS
-return db->executeQuery("CREATE TABLE users ( "
-                        "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                        "  uuid VARCHAR(36) NOT NULL,"
-                        "  name VARCHAR(128) NOT NULL,"
-                        "  pass VARCHAR(40) NOT NULL,"
-                        "  salt VARCHAR(40) NOT NULL,"
-                        "  role VARCHAR(36) NOT NULL,"
-                        "  dt INTEGER NOT NULL"
-                        ");");
-DATABASE_UPDATE_END()
+CLASS_DATABASE_UPDATE_BEGIN(test_database_file, v000, v001, "Init table users") {
+  // IF NOT EXISTS
+  return db->executeQuery(
+    "CREATE TABLE users ( "
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  uuid VARCHAR(36) NOT NULL,"
+    "  name VARCHAR(128) NOT NULL,"
+    "  pass VARCHAR(40) NOT NULL,"
+    "  salt VARCHAR(40) NOT NULL,"
+    "  role VARCHAR(36) NOT NULL,"
+    "  dt INTEGER NOT NULL"
+    ");"
+  );
+}
+CLASS_DATABASE_UPDATE_END(test_database_file, v000, v001)
 
-class test_database_file : public sea5kg::database_file {
+CLASS_DATABASE_UPDATE_BEGIN(test_database_file, v001, v002, "Init table roles") {
+  // IF NOT EXISTS
+  return db->executeQuery(
+    "CREATE TABLE roles ( "
+    "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    "  role VARCHAR(36) NOT NULL,"
+    ");"
+  );
+}
+CLASS_DATABASE_UPDATE_END(test_database_file, v001, v002)
+
+class test_database_file : public sea5kg::sqlite3_wrapper::database_file {
 public:
-  test_database_file() : sea5kg::database_file("./", "test_database_file.db") {
+  test_database_file() : sea5kg::sqlite3_wrapper::database_file("./", "test_database_file.db") {
+    INIT_UPDATES(test_database_file, v000)
     ADD_DATABASE_UPDATE(test_database_file, v000, v001)
   }
 };

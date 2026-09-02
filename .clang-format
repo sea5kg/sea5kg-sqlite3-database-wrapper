@@ -9,6 +9,9 @@ AllowShortLambdasOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: false
 BreakBeforeBraces: Attach
+AlignEscapedNewlines: DontAlign
+AlignAfterOpenBracket: BlockIndent
+ContinuationIndentWidth: 2
 
 # BreakBeforeBraces: Custom
 # BraceWrapping:

@@ -77,6 +77,8 @@ private:
   int m_weight;
 };
 
+extern std::map<std::string, database_update *> *g_database_updates;
+
 #define CLASS_DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description) \
   class db_update_##class_name##_##ver_from##_##ver_to : public sea5kg::sqlite3_wrapper::database_update { \
   public: \

@@ -1,4 +1,4 @@
-name: "sea5kg-sqlite3-database-wrapper"
+name: "sea5kg-sqlite3-wrapper"
 version: v0.1.0
 cmake_minimum_required: "3.0"
 cmake_cxx_standard: "17"
@@ -17,10 +17,10 @@ keywords:
   - "builder"
 
 distribution:
-  - source-file: "src/sea5kg_sqlite3_database_wrapper.h"
+  - source-file: "src/sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.h"
     target-file: "sea5kg_sqlite3_database_wrapper.h"
     type: "source-code"
-  - source-file: "src/sea5kg_sqlite3_database_wrapper.cpp"
+  - source-file: "src/sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.cpp"
     target-file: "sea5kg_sqlite3_database_wrapper.cpp"
     type: "source-code"
 

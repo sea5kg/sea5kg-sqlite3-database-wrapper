@@ -21,11 +21,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * Official Source Code: https://github.com/sea5kg/sea5kg-sqlite3-database-wrapper
+ * Official Source Code: https://github.com/sea5kg/sea5kg-sqlite3-wrapper
  *
  ***********************************************************************************/
 
-#include "sea5kg_sqlite3_database_wrapper.h"
+#include "sea5kg_sqlite3_wrapper.h"
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
@@ -154,13 +154,17 @@ const std::string &database_update_info::description() const {
   return m_description;
 }
 
-// ---------------------------------------------------------------------
-// database_update
+std::map<std::string, database_update *> *g_database_updates = nullptr;
 
 database_update::database_update(
   const std::string &version_from, const std::string &version_to, const std::string &description
 )
     : m_update_info(version_from, version_to, description) {
+  if (g_database_updates == nullptr) {
+    // sea5kg::log::info(std::string(), "Create employees map");
+    g_database_updates = new std::map<std::string, database_update *>();
+  }
+  // g_database_updates->insert(std::pair<std::string, database_update *>(name, this));
 }
 
 const database_update_info &database_update::info() {

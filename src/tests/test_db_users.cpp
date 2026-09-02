@@ -21,12 +21,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  *
- * Official Source Code: https://github.com/sea5kg/sea5kg-sqlite3-database-wrapper
+ * Official Source Code: https://github.com/sea5kg/sea5kg-sqlite3-wrapper
  *
  ***********************************************************************************/
 
 #include <iostream>
-#include <sea5kg_sqlite3_database_wrapper.h>
+#include "sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.h"
 
 CLASS_DATABASE_UPDATE_BEGIN(test_database_file, v000, v001, "Init table users") {
   // IF NOT EXISTS

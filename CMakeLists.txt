@@ -20,22 +20,22 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 #
-# Official Source Code: https://github.com/sea5kg/sea5kg-sqlite3-database-wrapper
+# Official Source Code: https://github.com/sea5kg/sea5kg-sqlite3-wrapper
 
 cmake_minimum_required(VERSION 3.0)
 
-project(sea5kg-sqlite3-database-wrapper C CXX)
+project(sea5kg-sqlite3-wrapper C CXX)
 
 # include(${CMAKE_CURRENT_SOURCE_DIR}/src.wsjcpp/CMakeLists.txt)
 
 set(CMAKE_CXX_STANDARD 17)
-set(EXECUTABLE_OUTPUT_PATH ${sea5kg-sqlite3-database-wrapper_SOURCE_DIR})
+set(EXECUTABLE_OUTPUT_PATH ${sea5kg-sqlite3-wrapper_SOURCE_DIR})
 
 # include header dirs
 list (APPEND WSJCPP_INCLUDE_DIRS "src")
 
 list (APPEND WSJCPP_SOURCES "src/main.cpp")
-list (APPEND WSJCPP_SOURCES "src/sea5kg_sqlite3_database_wrapper.cpp")
+list (APPEND WSJCPP_SOURCES "src/sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.cpp")
 
 #### BEGIN_WSJCPP_APPEND
 #### END_WSJCPP_APPEND
@@ -52,13 +52,13 @@ list (APPEND WSJCPP_INCLUDE_DIRS "${PROJECT_SOURCE_DIR}/src/third_party/sqlite3/
 
 include_directories(${WSJCPP_INCLUDE_DIRS})
 
-add_executable (sea5kg-sqlite3-database-wrapper ${WSJCPP_SOURCES})
+add_executable (sea5kg-sqlite3-wrapper ${WSJCPP_SOURCES})
 
-target_link_libraries(sea5kg-sqlite3-database-wrapper ${WSJCPP_LIBRARIES})
+target_link_libraries(sea5kg-sqlite3-wrapper ${WSJCPP_LIBRARIES})
 
 # install(
 #     TARGETS
-#         sea5kg-sqlite3-database-wrapper
+#         sea5kg-sqlite3-wrapper
 #     RUNTIME DESTINATION
 #         /usr/bin
 # )

@@ -28,7 +28,7 @@ file(GLOB ALL_TESTS
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY tests)
 
-list (APPEND TEST_YAML_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../sea5kg_sqlite3_database_wrapper.cpp")
+list (APPEND TEST_YAML_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/../sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.cpp")
 
 foreach(_TEST ${ALL_TESTS})
     get_filename_component(TEST_NAME ${_TEST} NAME_WE)

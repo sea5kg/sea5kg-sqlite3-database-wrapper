@@ -26,7 +26,7 @@
  ***********************************************************************************/
 
 #include <iostream>
-#include <sea5kg_sqlite3_database_wrapper.h>
+#include "sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.h"
 
 int main(int argc, const char *argv[]) {
 

@@ -110,6 +110,20 @@ void global::registry_database_update(const std::string &db_name, std::shared_pt
   g_database_updates->insert(std::pair<std::string, std::shared_ptr<database_update>>(db_name, upd));
 }
 
+std::map<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>> *g_database_updates_fabric = nullptr;
+
+void global::registry_database_update_fabric(const std::string &db_name, std::shared_ptr<database_update_fabric_base> fab) {
+  if (g_database_updates_fabric == nullptr) {
+    g_database_updates_fabric = new std::map<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>>();
+  }
+  if (g_database_updates_fabric->count(db_name) == 0) {
+    g_database_updates_fabric->insert(std::pair<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>>(db_name, {}));
+  }
+
+  g_database_updates_fabric->at(db_name).push_back(fab);
+}
+
+
 // std::map<std::string, database_file *> *g_opened_database_files = nullptr;
 
 // // static
@@ -164,12 +178,12 @@ const std::string &database_update_info::description() const {
 }
 
 database_update::database_update(
-  const std::string &db_filename,
+  const std::string &db_name,
   const std::string &version_from,
   const std::string &version_to,
   const std::string &description
 )
-    : m_update_info(version_from, version_to, description) {
+    : m_update_info(version_from, version_to, description), m_db_name(db_name) {
   // if (g_database_updates == nullptr) {
   //   // sea5kg::log::info(std::string(), "Create employees map");
   //   g_database_updates = new std::map<std::string, std::shared_ptr<database_update>>();
@@ -180,6 +194,10 @@ database_update::database_update(
 
 const database_update_info &database_update::info() {
   return m_update_info;
+};
+
+const std::string &database_update::db_name() const {
+  return m_db_name;
 };
 
 void database_update::set_weight(int weight) {

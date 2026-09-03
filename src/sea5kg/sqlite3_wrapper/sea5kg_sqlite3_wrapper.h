@@ -53,13 +53,27 @@ private:
 class database_file;
 class database_update;
 
+class database_update_fabric_base {
+public:
+  virtual std::shared_ptr<database_update> create_update() = 0;
+};
+
+template <typename T> class database_update_fabric : public database_update_fabric_base {
+public:
+  virtual std::shared_ptr<database_update> create_update() override {
+    return std::make_shared<T>();
+  }
+};
+
 // extern std::map<std::string, database_file *> *g_opened_database_files;
 
 extern std::map<std::string, std::shared_ptr<database_update>> *g_database_updates;
+extern std::map<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>> *g_database_updates_fabric;
 
 class global {
 public:
   static void registry_database_update(const std::string &db_name, std::shared_ptr<database_update>);
+  static void registry_database_update_fabric(const std::string &db_name, std::shared_ptr<database_update_fabric_base>);
   // static void add_opened_database_file(const std::string &name, database_file *db);
   // static bool init_driver_sqlite3(int &ret);
   // static void shutdown_driver_sqlite3();
@@ -75,12 +89,13 @@ public:
 class database_update {
 public:
   database_update(
-    const std::string &db_filename,
+    const std::string &db_name,
     const std::string &version_from,
     const std::string &version_to,
     const std::string &description
   );
   const database_update_info &info();
+  const std::string &db_name() const;
   void set_weight(int weight);
   int weight();
   virtual bool apply_update(database_file *pDatabaseFile) = 0;
@@ -90,10 +105,21 @@ protected:
 
 private:
   database_update_info m_update_info;
+  std::string m_db_name;
   int m_weight;
 };
 
+// auto n = new sea5kg::sqlite3_wrapper::db_update_fabric<db_update_##class_name##_##ver_from##_##ver_to>(); \
+
 #define CLASS_DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description) \
+  class db_update_##class_name##_##ver_from##_##ver_to; \
+  struct registry_db_update_fabric_##class_name##_##ver_from##_##ver_to { \
+    registry_db_update_fabric_##class_name##_##ver_from##_##ver_to() { \
+      std::shared_ptr<sea5kg::sqlite3_wrapper::database_update_fabric_base> ptr = \
+        std::make_shared<sea5kg::sqlite3_wrapper::database_update_fabric<db_update_##class_name##_##ver_from##_##ver_to>>(); \
+      sea5kg::sqlite3_wrapper::global::registry_database_update_fabric(#class_name, ptr); \
+    } \
+  } registry_db_update_fabric_##class_name##_##ver_from##_##ver_to##__; \
   class db_update_##class_name##_##ver_from##_##ver_to : public sea5kg::sqlite3_wrapper::database_update { \
   public: \
     db_update_##class_name##_##ver_from##_##ver_to() \
@@ -106,13 +132,11 @@ private:
   ; \
   struct registry_db_update_##class_name##_##ver_from##_##ver_to { \
     registry_db_update_##class_name##_##ver_from##_##ver_to() { \
-      std::shared_ptr<sea5kg::sqlite3_wrapper::database_update> ptr = std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>(); \
+      std::shared_ptr<sea5kg::sqlite3_wrapper::database_update> ptr = \
+        std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>(); \
       sea5kg::sqlite3_wrapper::global::registry_database_update(#class_name, ptr); \
     } \
   } registry_db_update_##class_name##_##ver_from##_##ver_to##_;
-
-#define ADD_DATABASE_UPDATE(class_name, ver_from, ver_to) \
-  m_vDbUpdates.push_back(std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>());
 
 #define INIT_UPDATES(class_name) init_updates(#class_name);
 

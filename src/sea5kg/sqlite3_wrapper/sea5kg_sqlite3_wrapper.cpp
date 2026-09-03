@@ -101,15 +101,6 @@ bool __copy_file(const std::string &sSourceFilename, const std::string &sTargetF
   return true;
 }
 
-std::map<std::string, std::shared_ptr<database_update>> *g_database_updates = nullptr;
-
-void global::registry_database_update(const std::string &db_name, std::shared_ptr<database_update> upd) {
-  if (g_database_updates == nullptr) {
-    g_database_updates = new std::map<std::string, std::shared_ptr<database_update>>();
-  }
-  g_database_updates->insert(std::pair<std::string, std::shared_ptr<database_update>>(db_name, upd));
-}
-
 std::map<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>> *g_database_updates_fabric = nullptr;
 
 void global::registry_database_update_fabric(const std::string &db_name, std::shared_ptr<database_update_fabric_base> fab) {
@@ -240,11 +231,15 @@ long DatabaseSelectRows::getLong(int nColumnNumber) {
 // ---------------------------------------------------------------------
 // database_file
 
-database_file::database_file(const std::string &db_dir, const std::string &filename, long backup_freq)
-    : m_backup_freq_in_seconds(backup_freq), m_last_backup_time(0), m_initial_version("initial") {
+database_file::database_file(const std::string &db_name, const std::string &db_dir, const std::string &filename, long backup_freq)
+    : m_backup_freq_in_seconds(backup_freq), m_last_backup_time(0), m_initial_version("initial"), m_db_name(db_name) {
   TAG = "database_file-" + filename;
+  if (filename != "") {
+    m_filename = filename;
+  } else {
+    m_filename = db_name + ".db";
+  }
   m_pDatabaseFile = nullptr;
-  m_filename = filename;
   std::string sDatabaseDir = db_dir;
   m_filepath = sDatabaseDir + "/" + m_filename;
 
@@ -256,6 +251,16 @@ database_file::database_file(const std::string &db_dir, const std::string &filen
       }
     }
     m_basename_backup_filepath = sDatabaseBackupDir + "/" + m_filename;
+  }
+
+  if (g_database_updates_fabric != nullptr) {
+    if (g_database_updates_fabric->count(m_db_name)) {
+      std::vector<std::shared_ptr<database_update_fabric_base>> fabs = g_database_updates_fabric->at(m_db_name);
+      for (auto it : fabs) {
+        // std::cout << "Found update" << std::endl;
+        m_vDbUpdates.push_back(it->create_update());
+      }
+    }
   }
 };
 
@@ -274,7 +279,7 @@ const std::string &database_file::filepath() const {
   return m_filepath;
 }
 
-bool database_file::open() {
+bool database_file::open(std::string &error) {
   // TODO if could not open but has backup try open backup
   // open connection to a DB
   sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
@@ -311,8 +316,7 @@ bool database_file::open() {
   }
 
   if (!installUpdates()) {
-    // TODO
-    // WsjcppLog::throw_err(TAG, "Problem with install updates");
+    error = "Problem with install updates";
     return false;
   }
 
@@ -388,6 +392,7 @@ bool database_file::installUpdates() {
       "SELECT version_from, version_to, description FROM db_version ORDER BY rowid";
     int ret = sqlite3_prepare_v2(db, sSqlCurrentVersion.c_str(), -1, &pQuery, NULL);
     if (ret != SQLITE_OK) {
+      std::cerr << "Failed to prepare" << std::endl;
       // TODO
       // WsjcppLog::throw_err(TAG, "Failed to prepare: " + std::string(sqlite3_errmsg(db)) +
       //                              "\n SQL-query: " + sSqlCurrentVersion);
@@ -429,13 +434,15 @@ bool database_file::installUpdates() {
           auto it = std::find(installedVersionsTo.begin(), installedVersionsTo.end(), sVersionTo);
           if (it == installedVersionsTo.end()) {
             if (!upd->apply_update(this)) {
+              // TODO
+              std::cout << "Could not install update " << upd->info().version_to() << std::endl;
               return false;
             }
             if (!insertDbVersion(upd->info())) {
               return false;
             }
             // TODO
-            // WsjcppLog::ok(TAG, "Installed update " + sVersionTo);
+            std::cout << "Installed update " << sVersionTo << std::endl;
             installedNewUpdates.push_back(sVersionTo);
           } else {
             // skip update
@@ -462,16 +469,6 @@ bool database_file::insertDbVersion(const database_update_info &info) {
                               info.version_from() + "\", \"" + info.version_to() + "\", \"" + info.description() +
                               "\", " + std::to_string(nCurrentTime) + ")";
   return this->executeQuery(sSqlDbVersion);
-}
-
-void database_file::init_updates(const std::string &db_name) {
-  if (g_database_updates != nullptr) {
-    for (const auto &pair : *g_database_updates) {
-      if (pair.first == db_name) {
-        m_vDbUpdates.push_back(pair.second);
-      }
-    }
-  }
 }
 
 void database_file::copy_database_to_backup() {

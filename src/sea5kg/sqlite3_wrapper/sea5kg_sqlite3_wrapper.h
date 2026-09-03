@@ -65,14 +65,11 @@ public:
   }
 };
 
-// extern std::map<std::string, database_file *> *g_opened_database_files;
-
-extern std::map<std::string, std::shared_ptr<database_update>> *g_database_updates;
 extern std::map<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>> *g_database_updates_fabric;
+// extern std::map<std::string, database_file *> *g_opened_database_files;
 
 class global {
 public:
-  static void registry_database_update(const std::string &db_name, std::shared_ptr<database_update>);
   static void registry_database_update_fabric(const std::string &db_name, std::shared_ptr<database_update_fabric_base>);
   // static void add_opened_database_file(const std::string &name, database_file *db);
   // static bool init_driver_sqlite3(int &ret);
@@ -115,8 +112,8 @@ private:
   class db_update_##class_name##_##ver_from##_##ver_to; \
   struct registry_db_update_fabric_##class_name##_##ver_from##_##ver_to { \
     registry_db_update_fabric_##class_name##_##ver_from##_##ver_to() { \
-      std::shared_ptr<sea5kg::sqlite3_wrapper::database_update_fabric_base> ptr = \
-        std::make_shared<sea5kg::sqlite3_wrapper::database_update_fabric<db_update_##class_name##_##ver_from##_##ver_to>>(); \
+      std::shared_ptr<sea5kg::sqlite3_wrapper::database_update_fabric_base> ptr = std::make_shared< \
+        sea5kg::sqlite3_wrapper::database_update_fabric<db_update_##class_name##_##ver_from##_##ver_to>>(); \
       sea5kg::sqlite3_wrapper::global::registry_database_update_fabric(#class_name, ptr); \
     } \
   } registry_db_update_fabric_##class_name##_##ver_from##_##ver_to##__; \
@@ -127,18 +124,13 @@ private:
     } \
     virtual bool apply_update(sea5kg::sqlite3_wrapper::database_file * db) override
 
-#define CLASS_DATABASE_UPDATE_END(class_name, ver_from, ver_to) \
+#define CLASS_DATABASE_UPDATE_END() \
   } \
-  ; \
-  struct registry_db_update_##class_name##_##ver_from##_##ver_to { \
-    registry_db_update_##class_name##_##ver_from##_##ver_to() { \
-      std::shared_ptr<sea5kg::sqlite3_wrapper::database_update> ptr = \
-        std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>(); \
-      sea5kg::sqlite3_wrapper::global::registry_database_update(#class_name, ptr); \
-    } \
-  } registry_db_update_##class_name##_##ver_from##_##ver_to##_;
+  ;
 
-#define INIT_UPDATES(class_name) init_updates(#class_name);
+#define CLASS_DATABASE_UPDATE_NEXT(class_name, ver_from, ver_to, description) \
+  CLASS_DATABASE_UPDATE_END() \
+  CLASS_DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description)
 
 class DatabaseSelectRows {
 public:
@@ -156,11 +148,13 @@ private:
 
 class database_file {
 public:
-  database_file(const std::string &db_dir, const std::string &filename, long backup_freq = 0);
+  database_file(
+    const std::string &db_name, const std::string &db_dir, const std::string &filename = "", long backup_freq = 0
+  );
   ~database_file();
   const std::string &filename() const;
   const std::string &filepath() const;
-  bool open();
+  bool open(std::string &error);
   bool executeQuery(std::string sSqlInsert);
   int selectSumOrCount(std::string sSqlSelectCount);
   bool selectRows(std::string sSqlSelectRows, DatabaseSelectRows &selectRows);
@@ -168,7 +162,6 @@ public:
 protected:
   bool installUpdates();
   bool insertDbVersion(const database_update_info &info);
-  void init_updates(const std::string &db_name);
   std::vector<std::shared_ptr<database_update>> m_vDbUpdates;
   std::string TAG;
 
@@ -178,6 +171,7 @@ private:
 
   // hidden type 'sqlite3 *'
   void *m_pDatabaseFile;
+  std::string m_db_name;
   std::string m_filename;
   std::string m_initial_version;
   std::string m_filepath;

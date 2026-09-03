@@ -42,31 +42,29 @@ CLASS_DATABASE_UPDATE_BEGIN(db_users, initial, v001, "Init table users") {
     ");"
   );
 }
-CLASS_DATABASE_UPDATE_END(db_users, initial, v001)
-
-CLASS_DATABASE_UPDATE_BEGIN(db_users, v001, v002, "Init table roles") {
+CLASS_DATABASE_UPDATE_NEXT(db_users, v001, v002, "Init table roles") {
   // IF NOT EXISTS
   return db->executeQuery(
     "CREATE TABLE roles ( "
     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-    "  role VARCHAR(36) NOT NULL,"
+    "  role VARCHAR(36) NOT NULL"
     ");"
   );
 }
-CLASS_DATABASE_UPDATE_END(db_users, v001, v002)
+CLASS_DATABASE_UPDATE_END()
 
 class db_users : public sea5kg::sqlite3_wrapper::database_file {
 public:
-  db_users(const std::string &db_dir) : sea5kg::sqlite3_wrapper::database_file(db_dir, "test_db_users.db") {
-    INIT_UPDATES(db_users)
+  db_users(const std::string &db_dir) : sea5kg::sqlite3_wrapper::database_file("db_users", db_dir, "test_db_users.db") {
   }
 };
 
 int main() {
   db_users db("./");
 
-  if (!db.open()) {
-    std::cerr << "Could not open database" << std::endl;
+  std::string error;
+  if (!db.open(error)) {
+    std::cerr << "Could not open database: " << error << std::endl;
     return -1;
   }
 

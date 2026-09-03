@@ -25,13 +25,13 @@
  *
  ***********************************************************************************/
 
-#include <iostream>
 #include "sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.h"
+#include <iostream>
 
 CLASS_DATABASE_UPDATE_BEGIN(db_users, initial, v001, "Init table users") {
   // IF NOT EXISTS
-  return db->executeQuery(
-    "CREATE TABLE users ( "
+  return db->execute_query(
+    "CREATE TABLE IF NOT EXISTS users ( "
     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "  uuid VARCHAR(36) NOT NULL,"
     "  name VARCHAR(128) NOT NULL,"
@@ -39,16 +39,18 @@ CLASS_DATABASE_UPDATE_BEGIN(db_users, initial, v001, "Init table users") {
     "  salt VARCHAR(40) NOT NULL,"
     "  role VARCHAR(36) NOT NULL,"
     "  dt INTEGER NOT NULL"
-    ");"
+    ");",
+    error
   );
 }
 CLASS_DATABASE_UPDATE_NEXT(db_users, v001, v002, "Init table roles") {
   // IF NOT EXISTS
-  return db->executeQuery(
-    "CREATE TABLE roles ( "
+  return db->execute_query(
+    "CREATE TABLE IF NOT EXISTS roles ( "
     "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "  role VARCHAR(36) NOT NULL"
-    ");"
+    ");",
+    error
   );
 }
 CLASS_DATABASE_UPDATE_END()
@@ -60,6 +62,16 @@ public:
 };
 
 int main() {
+
+  // remove previous database
+  remove("test_db_users.db");
+
+  int driver_init_ret;
+  if (!sea5kg::sqlite3_wrapper::global::init_driver_sqlite3(driver_init_ret)) {
+    std::cerr << "Failed to initialize build-in sqlite3 library: " + std::to_string(driver_init_ret);
+    return -1;
+  }
+
   db_users db("./");
 
   std::string error;
@@ -68,5 +80,82 @@ int main() {
     return -1;
   }
 
+  if (!db.execute_query("DELETE FROM users;", error)) {
+    std::cerr << "Could not delete records from users. Error: " << error << std::endl;
+    return -1;
+  }
+
+  if (!db.execute_query("DELETE FROM roles;", error)) {
+    std::cerr << "Could not delete records from roles. Error: " << error << std::endl;
+    return -1;
+  }
+
+  // execute request on no existing table
+  if (db.execute_query("DELETE FROM roles_some_non_existing_table;", error)) {
+    std::cerr << "Why we can delete records on non existsing table. Error: " << error << std::endl;
+    return -1;
+  } else {
+    const std::string expected_error = "Problem with execute sql=query: 'no such table: roles_some_non_existing_table'. Incoming SQL: DELETE FROM roles_some_non_existing_table;";
+    if (error != expected_error) {
+      std::cerr << "Expected error message: " << expected_error << ", but got: " << error << std::endl;
+      return -1;
+    }
+  }
+
+  int count = db.select_sum_or_count("SELECT COUNT(*) FROM roles;", error);
+  if (count != 0) {
+    std::cerr << "Expected roles is 0 but got: " << count << ", Error: " << error << std::endl;
+    return -1;
+  }
+
+  if (!db.execute_query("INSERT INTO roles(role) VALUES('role1');", error)) {
+    std::cerr << "Could not insert 'role1' to roles. Error: " << error << std::endl;
+    return -1;
+  }
+
+  count = db.select_sum_or_count("SELECT COUNT(*) FROM roles;", error);
+  if (count != 1) {
+    std::cerr << "Expected roles is 1 but got: " << count << ", Error: " << error << std::endl;
+    return -1;
+  }
+
+  if (!db.execute_query("INSERT INTO roles(role) VALUES('role2');", error)) {
+    std::cerr << "Could not insert 'role2' to roles. Error: " << error << std::endl;
+    return -1;
+  }
+
+  if (!db.execute_query("INSERT INTO roles(role) VALUES('role3');", error)) {
+    std::cerr << "Could not insert 'role3' to roles. Error: " << error << std::endl;
+    return -1;
+  }
+
+  count = db.select_sum_or_count("SELECT COUNT(*) FROM roles;", error);
+  if (count != 3) {
+    std::cerr << "Expected roles is 3 but got: " << count << ", Error: " << error << std::endl;
+    return -1;
+  }
+
+  sea5kg::sqlite3_wrapper::rows_iterator it;
+  if (!db.select_rows("SELECT id, role FROM roles;", it, error)) {
+    std::cerr << "Unexpected error for select, Error: " << error << std::endl;
+    return -1;
+  }
+
+  std::vector<std::string> expected_roles = {"role1", "role2", "role3"};
+  std::vector<std::string> got_roles;
+  int i_exp_role = 0;
+  while (it.next()) {
+    long id = it.as_long(0);
+    // std::cout << "id = " << id << std::endl;
+    std::string role = it.as_string(1);
+    got_roles.push_back(role);
+    if (role != expected_roles[i_exp_role]) {
+      std::cerr << "Expected role: " << expected_roles[i_exp_role] << ", but got " << role << std::endl;
+      return -1;
+    }
+    i_exp_role++;
+  }
+
+  sea5kg::sqlite3_wrapper::global::shutdown_driver_sqlite3();
   return 0;
 }

@@ -103,49 +103,52 @@ bool __copy_file(const std::string &sSourceFilename, const std::string &sTargetF
 
 std::map<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>> *g_database_updates_fabric = nullptr;
 
-void global::registry_database_update_fabric(const std::string &db_name, std::shared_ptr<database_update_fabric_base> fab) {
+void global::registry_database_update_fabric(
+  const std::string &db_name, std::shared_ptr<database_update_fabric_base> fab
+) {
   if (g_database_updates_fabric == nullptr) {
     g_database_updates_fabric = new std::map<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>>();
   }
   if (g_database_updates_fabric->count(db_name) == 0) {
-    g_database_updates_fabric->insert(std::pair<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>>(db_name, {}));
+    g_database_updates_fabric->insert(
+      std::pair<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>>(db_name, {})
+    );
   }
 
   g_database_updates_fabric->at(db_name).push_back(fab);
 }
 
+std::map<std::string, std::shared_ptr<database_file>> *g_opened_database_files = nullptr;
 
-// std::map<std::string, database_file *> *g_opened_database_files = nullptr;
+// static
+void global::add_opened_database_file(const std::string &name, std::shared_ptr<database_file> db) {
+  if (g_opened_database_files == nullptr) {
+    // sea5kg::log::info(std::string(), "Create employees map");
+    g_opened_database_files = new std::map<std::string, std::shared_ptr<database_file>>();
+  }
+  if (g_opened_database_files->find(name) != g_opened_database_files->end()) {
+    // "Already registered '" + name + "'";
+  } else {
+    g_opened_database_files->insert(std::pair<std::string, std::shared_ptr<database_file>>(name, db));
+  }
+}
 
-// // static
-// void global_databases::add_opened_database_file(const std::string &name, database_file *db) {
-//   if (g_opened_database_files == nullptr) {
-//     // sea5kg::log::info(std::string(), "Create employees map");
-//     g_opened_database_files = new std::map<std::string, database_file *>();
-//   }
-//   if (g_opened_database_files->find(name) != g_opened_database_files->end()) {
-//     sea5kg::log::critical("WsjcppEmployees::addService", "Already registered '" + name + "'");
-//   } else {
-//     g_opened_database_files->insert(std::pair<std::string, database_file *>(name, db));
-//   }
-// }
+// static
+bool global::init_driver_sqlite3(int &ret) {
+  ret = sqlite3_initialize();
+  return SQLITE_OK == ret;
+}
 
-// // static
-// bool global_databases::init_driver_sqlite3(int &ret) {
-//   ret = sqlite3_initialize();
-//   return SQLITE_OK == ret;
-// }
-
-// // static
-// void global_databases::shutdown_driver_sqlite3() {
-//   // will be automatically closed all opened databases
-//   if (g_opened_database_files != nullptr) {
-//     for (const auto &pair : *g_opened_database_files) {
-//       pair.second->close();
-//     }
-//   }
-//   sqlite3_shutdown();
-// }
+// static
+void global::shutdown_driver_sqlite3() {
+  // will be automatically closed all opened databases
+  if (g_opened_database_files != nullptr) {
+    for (const auto &pair : *g_opened_database_files) {
+      pair.second->close();
+    }
+  }
+  sqlite3_shutdown();
+}
 
 // ---------------------------------------------------------------------
 // database_update_info
@@ -200,46 +203,45 @@ int database_update::weight() {
 }
 
 // ---------------------------------------------------------------------
-// DatabaseSelectRows
+// rows_iterator
 
-DatabaseSelectRows::DatabaseSelectRows() {
-  m_pQuery = nullptr;
+rows_iterator::rows_iterator() {
+  m_stmt = nullptr;
 }
 
-DatabaseSelectRows::~DatabaseSelectRows() {
-  if (m_pQuery != nullptr) {
-    sqlite3_finalize((sqlite3_stmt *)m_pQuery);
+rows_iterator::~rows_iterator() {
+  if (m_stmt != nullptr) {
+    sqlite3_finalize((sqlite3_stmt *)m_stmt);
   }
 }
 
-void DatabaseSelectRows::setQuery(void *pQuery) {
-  m_pQuery = pQuery;
+void rows_iterator::set_stmt(void *stmt) {
+  m_stmt = stmt;
 }
 
-bool DatabaseSelectRows::next() {
-  return sqlite3_step((sqlite3_stmt *)m_pQuery) == SQLITE_ROW;
+void *rows_iterator::stmt() {
+  return m_stmt;
 }
 
-std::string DatabaseSelectRows::getString(int nColumnNumber) {
-  return std::string((const char *)sqlite3_column_text((sqlite3_stmt *)m_pQuery, nColumnNumber));
+bool rows_iterator::next() {
+  return sqlite3_step((sqlite3_stmt *)m_stmt) == SQLITE_ROW;
 }
 
-long DatabaseSelectRows::getLong(int nColumnNumber) {
-  return sqlite3_column_int64((sqlite3_stmt *)m_pQuery, nColumnNumber);
+std::string rows_iterator::as_string(int column_idx) {
+  return std::string((const char *)sqlite3_column_text((sqlite3_stmt *)m_stmt, column_idx));
 }
 
-// ---------------------------------------------------------------------
-// database_file
+long rows_iterator::as_long(int column_idx) {
+  return sqlite3_column_int64((sqlite3_stmt *)m_stmt, column_idx);
+}
 
-database_file::database_file(const std::string &db_name, const std::string &db_dir, const std::string &filename, long backup_freq)
-    : m_backup_freq_in_seconds(backup_freq), m_last_backup_time(0), m_initial_version("initial"), m_db_name(db_name) {
-  TAG = "database_file-" + filename;
-  if (filename != "") {
-    m_filename = filename;
-  } else {
-    m_filename = db_name + ".db";
-  }
-  m_pDatabaseFile = nullptr;
+database_file::database_file(
+  const std::string &db_name, const std::string &db_dir, const std::string &filename, long backup_freq
+)
+    : m_db(nullptr), m_backup_freq_in_seconds(backup_freq), m_last_backup_time(0), m_initial_version("initial"),
+      m_db_name(db_name) {
+  m_filename = filename != "" ? filename : db_name + ".db";
+
   std::string sDatabaseDir = db_dir;
   m_filepath = sDatabaseDir + "/" + m_filename;
 
@@ -247,7 +249,8 @@ database_file::database_file(const std::string &db_name, const std::string &db_d
     std::string sDatabaseBackupDir = sDatabaseDir + "/backups";
     if (!__dir_exists(sDatabaseBackupDir)) {
       if (!__make_dir(sDatabaseBackupDir)) {
-        // TODO
+        m_last_error = "Could not create database dir";
+        return;
       }
     }
     m_basename_backup_filepath = sDatabaseBackupDir + "/" + m_filename;
@@ -258,15 +261,15 @@ database_file::database_file(const std::string &db_name, const std::string &db_d
       std::vector<std::shared_ptr<database_update_fabric_base>> fabs = g_database_updates_fabric->at(m_db_name);
       for (auto it : fabs) {
         // std::cout << "Found update" << std::endl;
-        m_vDbUpdates.push_back(it->create_update());
+        m_db_updates.push_back(it->create_update());
       }
     }
   }
 };
 
 database_file::~database_file() {
-  if (m_pDatabaseFile != nullptr) {
-    sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
+  if (m_db != nullptr) {
+    sqlite3 *db = (sqlite3 *)m_db;
     sqlite3_close(db);
   }
 }
@@ -279,110 +282,123 @@ const std::string &database_file::filepath() const {
   return m_filepath;
 }
 
+bool database_file::contains_table(const std::string &table_name) {
+  sqlite3 *db = (sqlite3 *)m_db;
+  std::string sSqlCheckVersionTable =
+    "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='" + table_name + "';";
+  std::string error;
+  int cnt = select_sum_or_count(sSqlCheckVersionTable.c_str(), error);
+  return cnt == 1;
+}
+
 bool database_file::open(std::string &error) {
+  m_db = nullptr;
   // TODO if could not open but has backup try open backup
   // open connection to a DB
-  sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
+  sqlite3 *db = (sqlite3 *)m_db;
   int nRet = sqlite3_open_v2(m_filepath.c_str(), &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
   if (nRet != SQLITE_OK) {
-    // TODO
-    // WsjcppLog::throw_err(TAG, "Failed to open conn: " + std::to_string(nRet));
+    error = "Failed to open database: " + std::to_string(nRet);
+    m_db = nullptr;
     return false;
   }
-  m_pDatabaseFile = db;
+  m_db = db;
 
-  const std::string sSqlCheckVersionTable =
-    "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='db_version';";
-
-  int cnt = selectSumOrCount(sSqlCheckVersionTable.c_str());
-  if (cnt == 0) {
-    // create db_version
-    const std::string sSqlCreateDbVersion = "CREATE TABLE IF NOT EXISTS db_version ( "
-                                            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                                            "  version_from VARCHAR(64),"
-                                            "  version_to VARCHAR(64),"
-                                            "  dt INTEGER NOT NULL,"
-                                            "  description VARCHAR(2048) NOT NULL"
-                                            ");";
-    char *zErrMsg = 0;
-    nRet = sqlite3_exec(db, sSqlCreateDbVersion.c_str(), 0, 0, &zErrMsg);
-    if (nRet != SQLITE_OK) {
-      // TODO
-      // WsjcppLog::throw_err(TAG, "Problem with create table: " + std::string(zErrMsg));
-      return false;
-    }
-    // TODO
-    // WsjcppLog::info(TAG, "Created table db_version in " + m_sFileFullpath);
-  }
-
-  if (!installUpdates()) {
-    error = "Problem with install updates";
+  if (!create_table_db_version(error)) {
+    close();
     return false;
   }
 
-  // TODO
-  // WsjcppLog::ok(TAG, "Opened database file " + m_sFileFullpath);
-  copy_database_to_backup();
+  if (!copy_database_to_backup(error)) {
+    close();
+    return false;
+  }
+
+  if (!install_updates(error)) {
+    close();
+    return false;
+  }
   return true;
 }
 
-bool database_file::executeQuery(std::string sSqlInsert) {
-  copy_database_to_backup();
+bool database_file::is_opened() const {
+  return m_db != nullptr;
+}
+
+void database_file::close() {
+  if (is_opened()) {
+    sqlite3_close((sqlite3 *)m_db);
+    m_db = nullptr;
+  }
+}
+
+bool database_file::execute_query(const std::string &sql, std::string &error) {
+  if (!is_opened()) {
+    error = "Database not opened";
+    return false;
+  }
+  if (!copy_database_to_backup(error)) {
+    return false;
+  }
   char *zErrMsg = 0;
-  sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
-  int nRet = sqlite3_exec(db, sSqlInsert.c_str(), 0, 0, &zErrMsg);
-  if (nRet != SQLITE_OK) {
-    // TODO
-    // WsjcppLog::throw_err(TAG, "Problem with insert: " + std::string(zErrMsg) + "\n SQL-query: " + sSqlInsert);
+  sqlite3 *db = (sqlite3 *)m_db;
+  int ret = sqlite3_exec(db, sql.c_str(), 0, 0, &zErrMsg);
+  if (ret != SQLITE_OK) {
+    error = "Problem with execute sql=query: '" + std::string(zErrMsg) + "'. Incoming SQL: " + sql;
     return false;
   }
   return true;
 }
 
-int database_file::selectSumOrCount(std::string sSqlSelectCount) {
-  // copy_database_to_backup();
-  sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
-  sqlite3_stmt *pQuery = nullptr;
-  int ret = sqlite3_prepare_v2(db, sSqlSelectCount.c_str(), -1, &pQuery, NULL);
+int database_file::select_sum_or_count(const std::string &sql, std::string &error) {
+  if (!is_opened()) {
+    error = "Database not opened";
+    return -1;
+  }
+  sqlite3 *db = (sqlite3 *)m_db;
+  sqlite3_stmt *stmt = nullptr;
+  int ret = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
   // prepare the statement
   if (ret != SQLITE_OK) {
-    // TODO
-    // WsjcppLog::throw_err(TAG, "Failed to prepare select count: " + std::string(sqlite3_errmsg(db)) +
-    //                               "\n SQL-query: " + sSqlSelectCount);
+    error = "Failed to prepare select count: '" + std::string(sqlite3_errmsg(db)) + "'. SQL: '" + sql + "'";
     return -1;
   }
   // step to 1st row of data
-  ret = sqlite3_step(pQuery);
+  ret = sqlite3_step(stmt);
   if (ret != SQLITE_ROW) { // see documentation, this can return more values as success
-    // TODO
-    // WsjcppLog::throw_err(TAG, "Failed to step for select count or sum: " + std::string(sqlite3_errmsg(db)) +
-    //                               "\n SQL-query: " + sSqlSelectCount);
+    error = "Failed to step for select count or sum: '" + std::string(sqlite3_errmsg(db)) + "'. SQL: " + sql;
     return -1;
   }
-  int nRet = sqlite3_column_int(pQuery, 0);
-  if (pQuery != nullptr)
-    sqlite3_finalize(pQuery);
+  int nRet = sqlite3_column_int(stmt, 0);
+  if (stmt != nullptr)
+    sqlite3_finalize(stmt);
   return nRet;
 }
 
-bool database_file::selectRows(std::string sSqlSelectRows, DatabaseSelectRows &selectRows) {
-  // copy_database_to_backup();
-  sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
-  sqlite3_stmt *pQuery = nullptr;
-  int nRet = sqlite3_prepare_v2(db, sSqlSelectRows.c_str(), -1, &pQuery, NULL);
-  // prepare the statement
-  if (nRet != SQLITE_OK) {
-    // TODO
-    // WsjcppLog::throw_err(TAG, "Failed to prepare select rows: " + std::string(sqlite3_errmsg(db)) +
-    //                               "\n SQL-query: " + sSqlSelectRows);
+bool database_file::select_rows(const std::string &sql, rows_iterator &rows, std::string &error) {
+  if (!is_opened()) {
+    // error = "Database not opened";
     return false;
   }
-  selectRows.setQuery((void *)pQuery);
+  // copy_database_to_backup();
+  sqlite3 *db = (sqlite3 *)m_db;
+  sqlite3_stmt *stmt = nullptr;
+  int ret = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, NULL);
+  // prepare the statement
+  if (ret != SQLITE_OK) {
+    error = "Failed to prepare select rows: '" + std::string(sqlite3_errmsg(db)) + "'. SQL: " + sql;
+    return false;
+  }
+  rows.set_stmt((void *)stmt);
   return true;
 }
 
-bool database_file::installUpdates() {
-  sqlite3 *db = (sqlite3 *)m_pDatabaseFile;
+bool database_file::install_updates(std::string &error) {
+  if (!is_opened()) {
+    error = "Database not opened";
+    return false;
+  }
+  sqlite3 *db = (sqlite3 *)m_db;
 
   // Installed updates
   std::vector<database_update_info> installedUpdates;
@@ -392,10 +408,7 @@ bool database_file::installUpdates() {
       "SELECT version_from, version_to, description FROM db_version ORDER BY rowid";
     int ret = sqlite3_prepare_v2(db, sSqlCurrentVersion.c_str(), -1, &pQuery, NULL);
     if (ret != SQLITE_OK) {
-      std::cerr << "Failed to prepare" << std::endl;
-      // TODO
-      // WsjcppLog::throw_err(TAG, "Failed to prepare: " + std::string(sqlite3_errmsg(db)) +
-      //                              "\n SQL-query: " + sSqlCurrentVersion);
+      error = "Failed to prepare: " + std::string(sqlite3_errmsg(db)) + "\n SQL-query: " + sSqlCurrentVersion;
       return false;
     }
     ret = sqlite3_step(pQuery);
@@ -424,8 +437,7 @@ bool database_file::installUpdates() {
     bInstalledNewUpdates = false;
     std::vector<std::string> installedNewUpdates;
 
-    for (const auto &upd : m_vDbUpdates) {
-      // database_update *pUpdate = m_vDbUpdates[i];
+    for (const auto &upd : m_db_updates) {
       const std::string &sVersionFrom = upd->info().version_from();
       const std::string &sVersionTo = upd->info().version_to();
 
@@ -433,16 +445,14 @@ bool database_file::installUpdates() {
         if (sVersionFrom == installedVersionsTo[iv]) {
           auto it = std::find(installedVersionsTo.begin(), installedVersionsTo.end(), sVersionTo);
           if (it == installedVersionsTo.end()) {
-            if (!upd->apply_update(this)) {
-              // TODO
-              std::cout << "Could not install update " << upd->info().version_to() << std::endl;
+            if (!upd->apply_update(this, error)) {
+              error +=
+                " (Could not install update " + upd->info().version_from() + " -> " + upd->info().version_to() + ")";
               return false;
             }
-            if (!insertDbVersion(upd->info())) {
+            if (!insert_db_version(upd->info(), error)) {
               return false;
             }
-            // TODO
-            std::cout << "Installed update " << sVersionTo << std::endl;
             installedNewUpdates.push_back(sVersionTo);
           } else {
             // skip update
@@ -459,40 +469,45 @@ bool database_file::installUpdates() {
   return true;
 }
 
-bool database_file::insertDbVersion(const database_update_info &info) {
+bool database_file::insert_db_version(const database_update_info &info, std::string &error) {
+  if (!is_opened()) {
+    error = "Database not opened";
+    return false;
+  }
   // TODO escaping
   long nCurrentTime =
     std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-  std::string sSqlDbVersion = "INSERT INTO "
-                              "db_version(version_from, version_to, description, dt) "
-                              "VALUES(\"" +
-                              info.version_from() + "\", \"" + info.version_to() + "\", \"" + info.description() +
-                              "\", " + std::to_string(nCurrentTime) + ")";
-  return this->executeQuery(sSqlDbVersion);
+  std::string sql = "INSERT INTO "
+                    "db_version(version_from, version_to, description, dt) "
+                    "VALUES(\"" +
+                    info.version_from() + "\", \"" + info.version_to() + "\", \"" + info.description() + "\", " +
+                    std::to_string(nCurrentTime) + ")";
+  if (!this->execute_query(sql, error)) {
+    return false;
+  }
+  return true;
 }
 
-void database_file::copy_database_to_backup() {
+bool database_file::copy_database_to_backup(std::string &error) {
   if (m_backup_freq_in_seconds <= 0) {
-    return;
+    return true;
   }
 
   std::lock_guard<std::mutex> lock(m_mutex);
-  // TODO must be configurable
-  // every 1 minutes make backup
   long nCurrentTime =
     std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
   if (nCurrentTime - m_last_backup_time < m_backup_freq_in_seconds) {
-    return;
+    return true;
   }
   m_last_backup_time = nCurrentTime;
 
+  // TODO must be configurable
   int nMaxBackupsFiles = 9;
-  // TODO
-  // WsjcppLog::info(TAG, "Start backup for " + m_sFileFullpath);
   std::string sFilebackup = m_basename_backup_filepath + "." + std::to_string(nMaxBackupsFiles);
   if (__file_exists(sFilebackup)) {
-    if (remove(sFilebackup.c_str())) {
-      // TODO error or warning
+    if (!remove(sFilebackup.c_str())) {
+      error = "Could not remove file " + sFilebackup;
+      return false;
     }
   }
   for (int i = nMaxBackupsFiles - 1; i >= 0; i--) {
@@ -500,18 +515,42 @@ void database_file::copy_database_to_backup() {
     std::string sFilebackupTo = m_basename_backup_filepath + "." + std::to_string(i + 1);
     if (__file_exists(sFilebackupFrom)) {
       if (std::rename(sFilebackupFrom.c_str(), sFilebackupTo.c_str())) {
-        // TODO
-        // WsjcppLog::throw_err(TAG, "Could not rename from " + sFilebackupFrom + " to " + sFilebackupTo);
+        error = "Could not rename from " + sFilebackupFrom + " to " + sFilebackupTo;
+        return false;
       }
     }
   }
   sFilebackup = m_basename_backup_filepath + "." + std::to_string(0);
   if (!__copy_file(m_filepath, sFilebackup)) {
-    // TODO
-    // WsjcppLog::throw_err(TAG, "Failed copy file to backup for " + m_sFileFullpath);
+    error = "Failed copy file to backup for " + m_filepath;
+    return false;
   }
-  // TODO
-  // WsjcppLog::info(TAG, "Backup done for " + m_sFileFullpath);
+  return true;
+}
+
+bool database_file::create_table_db_version(std::string &error) {
+  if (!is_opened()) {
+    error = "Database not opened";
+    return false;
+  }
+  if (!contains_table("db_version")) {
+    // create db_version
+    sqlite3 *db = (sqlite3 *)m_db;
+    const std::string sql = "CREATE TABLE IF NOT EXISTS db_version ( "
+                            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+                            "  version_from VARCHAR(64),"
+                            "  version_to VARCHAR(64),"
+                            "  dt INTEGER NOT NULL,"
+                            "  description VARCHAR(2048) NOT NULL"
+                            ");";
+    char *zErrMsg = 0;
+    int nRet = sqlite3_exec(db, sql.c_str(), 0, 0, &zErrMsg);
+    if (nRet != SQLITE_OK) {
+      error = "Problem with create table: " + std::string(zErrMsg);
+      return false;
+    }
+  }
+  return true;
 }
 
 } // namespace sqlite3_wrapper

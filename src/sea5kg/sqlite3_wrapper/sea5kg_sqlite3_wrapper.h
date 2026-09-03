@@ -66,22 +66,15 @@ public:
 };
 
 extern std::map<std::string, std::vector<std::shared_ptr<database_update_fabric_base>>> *g_database_updates_fabric;
-// extern std::map<std::string, database_file *> *g_opened_database_files;
+extern std::map<std::string, std::shared_ptr<database_file>> *g_opened_database_files;
 
 class global {
 public:
   static void registry_database_update_fabric(const std::string &db_name, std::shared_ptr<database_update_fabric_base>);
-  // static void add_opened_database_file(const std::string &name, database_file *db);
-  // static bool init_driver_sqlite3(int &ret);
-  // static void shutdown_driver_sqlite3();
+  static void add_opened_database_file(const std::string &name, std::shared_ptr<database_file> db);
+  static bool init_driver_sqlite3(int &ret);
+  static void shutdown_driver_sqlite3();
 };
-
-// class global_databases {
-// public:
-//   static void add_opened_database_file(const std::string &name, database_file *db);
-//   static bool init_driver_sqlite3(int &ret);
-//   static void shutdown_driver_sqlite3();
-// };
 
 class database_update {
 public:
@@ -95,7 +88,7 @@ public:
   const std::string &db_name() const;
   void set_weight(int weight);
   int weight();
-  virtual bool apply_update(database_file *pDatabaseFile) = 0;
+  virtual bool apply_update(database_file *pDatabaseFile, std::string &error) = 0;
 
 protected:
   std::string TAG;
@@ -122,7 +115,7 @@ private:
     db_update_##class_name##_##ver_from##_##ver_to() \
         : sea5kg::sqlite3_wrapper::database_update(#class_name, #ver_from, #ver_to, description) { \
     } \
-    virtual bool apply_update(sea5kg::sqlite3_wrapper::database_file * db) override
+    virtual bool apply_update(sea5kg::sqlite3_wrapper::database_file * db, std::string & error) override
 
 #define CLASS_DATABASE_UPDATE_END() \
   } \
@@ -132,18 +125,18 @@ private:
   CLASS_DATABASE_UPDATE_END() \
   CLASS_DATABASE_UPDATE_BEGIN(class_name, ver_from, ver_to, description)
 
-class DatabaseSelectRows {
+class rows_iterator {
 public:
-  DatabaseSelectRows();
-  ~DatabaseSelectRows();
-  void setQuery(void *pQuery);
+  rows_iterator();
+  ~rows_iterator();
+  void set_stmt(void *stmt);
+  void *stmt();
   bool next();
-  std::string getString(int nColumnNumber);
-  long getLong(int nColumnNumber);
+  std::string as_string(int column_idx);
+  long as_long(int column_idx);
 
 private:
-  // hidden type 'sqlite3_stmt *'
-  void *m_pQuery;
+  void *m_stmt; // hidden type 'sqlite3_stmt *'
 };
 
 class database_file {
@@ -155,29 +148,30 @@ public:
   const std::string &filename() const;
   const std::string &filepath() const;
   bool open(std::string &error);
-  bool executeQuery(std::string sSqlInsert);
-  int selectSumOrCount(std::string sSqlSelectCount);
-  bool selectRows(std::string sSqlSelectRows, DatabaseSelectRows &selectRows);
-
-protected:
-  bool installUpdates();
-  bool insertDbVersion(const database_update_info &info);
-  std::vector<std::shared_ptr<database_update>> m_vDbUpdates;
-  std::string TAG;
+  bool is_opened() const;
+  void close();
+  bool contains_table(const std::string &table_name);
+  bool execute_query(const std::string &sql, std::string &error);
+  int select_sum_or_count(const std::string &sql, std::string &error);
+  bool select_rows(const std::string &sql, rows_iterator &rows, std::string &error);
+  bool copy_database_to_backup(std::string &error);
 
 private:
-  void copy_database_to_backup();
-  std::mutex m_mutex;
+  bool create_table_db_version(std::string &error);
+  bool install_updates(std::string &error);
+  bool insert_db_version(const database_update_info &info, std::string &error);
 
-  // hidden type 'sqlite3 *'
-  void *m_pDatabaseFile;
+  std::mutex m_mutex;
+  void *m_db; // hidden type 'sqlite3 *'
   std::string m_db_name;
   std::string m_filename;
   std::string m_initial_version;
   std::string m_filepath;
   std::string m_basename_backup_filepath;
+  std::string m_last_error;
   long m_last_backup_time;
   long m_backup_freq_in_seconds;
+  std::vector<std::shared_ptr<database_update>> m_db_updates;
 };
 
 } // namespace sqlite3_wrapper

@@ -88,7 +88,7 @@ public:
   const std::string &db_name() const;
   void set_weight(int weight);
   int weight();
-  virtual bool apply_update(database_file *pDatabaseFile, std::string &error) = 0;
+  virtual bool apply_update(database_file *db, std::string &error) = 0;
 
 protected:
   std::string TAG;
@@ -142,7 +142,7 @@ private:
 class database_file {
 public:
   database_file(
-    const std::string &db_name, const std::string &db_dir, const std::string &filename = "", long backup_freq = 0
+    const std::string &db_name, const std::string &db_dir = "./", const std::string &filename = "", long backup_freq = 0
   );
   ~database_file();
   const std::string &filename() const;

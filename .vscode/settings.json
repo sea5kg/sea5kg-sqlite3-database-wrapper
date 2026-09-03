@@ -1,6 +1,8 @@
 {
     "C_Cpp.clang_format_style": "file",
     "cSpell.words": [
+        "AUTOINCREMENT",
+        "cerr",
         "cout",
         "DWSJCPP",
         "endforeach",
@@ -9,6 +11,7 @@
         "lpthread",
         "Sopov",
         "THREADSAFE",
+        "VARCHAR",
         "wsjcpp"
     ]
 }

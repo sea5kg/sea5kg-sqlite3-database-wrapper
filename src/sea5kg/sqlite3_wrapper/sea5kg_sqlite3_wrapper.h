@@ -114,7 +114,7 @@ private:
 #define ADD_DATABASE_UPDATE(class_name, ver_from, ver_to) \
   m_vDbUpdates.push_back(std::make_shared<db_update_##class_name##_##ver_from##_##ver_to>());
 
-#define INIT_UPDATES(class_name, init_ver) init_updates(#class_name, #init_ver);
+#define INIT_UPDATES(class_name) init_updates(#class_name);
 
 class DatabaseSelectRows {
 public:
@@ -144,7 +144,7 @@ public:
 protected:
   bool installUpdates();
   bool insertDbVersion(const database_update_info &info);
-  void init_updates(const std::string &db_name, const std::string &initial_version);
+  void init_updates(const std::string &db_name);
   std::vector<std::shared_ptr<database_update>> m_vDbUpdates;
   std::string TAG;
 

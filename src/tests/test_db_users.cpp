@@ -28,7 +28,7 @@
 #include <iostream>
 #include "sea5kg/sqlite3_wrapper/sea5kg_sqlite3_wrapper.h"
 
-CLASS_DATABASE_UPDATE_BEGIN(db_users, v000, v001, "Init table users") {
+CLASS_DATABASE_UPDATE_BEGIN(db_users, initial, v001, "Init table users") {
   // IF NOT EXISTS
   return db->executeQuery(
     "CREATE TABLE users ( "
@@ -42,7 +42,7 @@ CLASS_DATABASE_UPDATE_BEGIN(db_users, v000, v001, "Init table users") {
     ");"
   );
 }
-CLASS_DATABASE_UPDATE_END(db_users, v000, v001)
+CLASS_DATABASE_UPDATE_END(db_users, initial, v001)
 
 CLASS_DATABASE_UPDATE_BEGIN(db_users, v001, v002, "Init table roles") {
   // IF NOT EXISTS
@@ -58,7 +58,7 @@ CLASS_DATABASE_UPDATE_END(db_users, v001, v002)
 class db_users : public sea5kg::sqlite3_wrapper::database_file {
 public:
   db_users(const std::string &db_dir) : sea5kg::sqlite3_wrapper::database_file(db_dir, "test_db_users.db") {
-    INIT_UPDATES(db_users, v000)
+    INIT_UPDATES(db_users)
   }
 };
 

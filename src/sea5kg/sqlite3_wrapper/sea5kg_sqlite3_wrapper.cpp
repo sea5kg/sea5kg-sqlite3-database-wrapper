@@ -223,7 +223,7 @@ long DatabaseSelectRows::getLong(int nColumnNumber) {
 // database_file
 
 database_file::database_file(const std::string &db_dir, const std::string &filename, long backup_freq)
-    : m_backup_freq_in_seconds(backup_freq), m_last_backup_time(0) {
+    : m_backup_freq_in_seconds(backup_freq), m_last_backup_time(0), m_initial_version("initial") {
   TAG = "database_file-" + filename;
   m_pDatabaseFile = nullptr;
   m_filename = filename;
@@ -446,8 +446,7 @@ bool database_file::insertDbVersion(const database_update_info &info) {
   return this->executeQuery(sSqlDbVersion);
 }
 
-void database_file::init_updates(const std::string &db_name, const std::string &initial_version) {
-  m_initial_version = initial_version;
+void database_file::init_updates(const std::string &db_name) {
   if (g_database_updates != nullptr) {
     for (const auto &pair : *g_database_updates) {
       if (pair.first == db_name) {
